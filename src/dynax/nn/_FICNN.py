@@ -16,7 +16,7 @@ import jax.nn as jnn
 import jax.random as jr
 
 from jaxtyping import Array, PRNGKeyArray
-from typing import Union, Literal, Callable
+from typing import Union, Literal, Callable, Tuple
 
 
 from ..constraints import NonNegative
@@ -45,7 +45,7 @@ class _FICNNLayer(eqx.Module):
         return self.weight_z @ z + self.weight_y @ y + self.bias
     
 class FICNN(eqx.Module):
-    layers: tuple[_FICNNLayer|eqx.nn.Linear, ...]
+    layers: Tuple[Union[_FICNNLayer,eqx.nn.Linear], ...]
     in_size: Union[int, Literal["scalar"]] = eqx.field(static=True)
     out_size: Union[int, Literal["scalar"]] = eqx.field(static=True)
     activation: Callable
@@ -56,8 +56,8 @@ class FICNN(eqx.Module):
                  width:int = 16, 
                  depth:int = 2, 
                  activation: Callable = jnn.softplus,
-                 w_initializer:jnn.initializers.Initializer = jnn.initializers.glorot_uniform(),    # TODO: Change to He_uniform initialization when creating the dynax package! 
-                 b_initializer:jnn.initializers.Initializer = jnn.initializers.normal(),            # TODO: Change to He_uniform initialization when creating the dynax package!
+                 w_initializer:jnn.initializers.Initializer = jnn.initializers.he_normal(),
+                 b_initializer:jnn.initializers.Initializer = jnn.initializers.normal(),
                  *, 
                  key:PRNGKeyArray):
         
