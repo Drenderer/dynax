@@ -23,7 +23,7 @@ class Linear(eqx.Module):
     Custom implementation of a linear layer
     """
     weight: Array
-    bias: Array
+    bias: Array|None
     in_size: Union[int, Literal["scalar"]] = eqx.field(static=True)
     out_size: Union[int, Literal["scalar"]] = eqx.field(static=True)
     use_bias: bool = eqx.field(static=True)
