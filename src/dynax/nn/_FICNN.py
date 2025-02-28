@@ -2,11 +2,6 @@
 This file implements Fully Input Convex Neural Networks (FICNNs)
 from this paper https://arxiv.org/abs/1609.07152
 by Amos et al.
-
-TODO: Change the default weight initialization. Currently, this implementation uses
-some random? nonsenical? weight and bias initializations that were 'leftovers' from my thesis.
-I should change that and make he_uniform the standard for weight and bias initialization!
-This is the default for PyTorch as well as (almost) the default for equinox Linear layers.
 """
 
 import equinox as eqx
