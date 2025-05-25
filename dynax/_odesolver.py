@@ -33,15 +33,42 @@ class ODESolver(eqx.Module):
         ),
         max_steps: int = 4096,
     ):
+        """
+        Args:
+            func: Function or submodel to integrate. The function arguments are
+                ``(t, y, u, [**kwargs])`` with a scalar time ``t``, a ``N``-dimensional
+                state vector ``y``, a ``m``-dimensional input vector ``u`` and optional
+                keyword-arguments. The function must return an ``N``-dimensional vector
+                representing the state derivative.
+            augmentation: If ``augmentation`` is an array, it describes the vector
+                of augmented states that are added to the inital state ``y0`` before
+                passing it to ``func``. If augmentation is an integer, it describes how many
+                extra dimensions are to be added to the state and initializes the augmented
+                initial condition to all zeros. Defaults to 0.
+            augmented_ic_learnable: If ``True`` the initial condition of the augmented
+                state is updated during training. Defaults to False.
+            solver: Specifies the diffax solver to use for numerical integration.
+                Defaults to diffrax.Tsit5().
+            stepsize_controller: The diffrax stepsize controller to use for integration.
+                Defaults to diffrax.PIDController( rtol=1e-6, atol=1e-6 ).
+            max_steps: The maximum number of steps to take before quitting the computation
+                unconditionally. Defaults to 4096.
+
+        Raises:
+            ValueError: If provided augmentation is neither an array or integer.
+        """
         self.func = func
         self.augmented_ic_learnable = augmented_ic_learnable
         if isinstance(augmentation, int):
             self.augmented_ic = jnp.zeros(augmentation)
         elif eqx.is_array(augmentation):
+            assert augmentation.ndim == 1, (
+                "Initial condition for the augmented state must be 1-dimensional."
+            )
             self.augmented_ic = augmentation
         else:
             raise ValueError(
-                f"augmentation must be an int or an array but got {augmentation}"
+                f"'augmentation' must be an int or an array but got {augmentation}"
             )
 
         self.is_augmented = self.augmented_ic.size != 0
@@ -53,6 +80,17 @@ class ODESolver(eqx.Module):
     def __call__(
         self, ts: Array, y0: Array, us: Array | None = None, **kwargs
     ) -> Array:
+        """Integrate ``func``
+
+        Args:
+            ts: Array of timesteps at which the solution is evaluated, with shape ``(l,)``.
+            y0: Initial condition of the system state at time ``ts[0]``.
+            us: Two dimensional array of stacked input vectors at each timestep.
+                Shape ``(l, m)``. Defaults to None.
+
+        Returns:
+            Solution of the ODE excluding the augmented states. Shape ``(l, n)``.
+        """
         ys = self.get_augmented_trajectory(ts, y0, us, **kwargs)
         if self.is_augmented:
             # Remove the augmentation dimension and return
@@ -63,6 +101,16 @@ class ODESolver(eqx.Module):
     def get_solution(
         self, ts: Array, y0: Array, us: Array | None, **kwargs
     ) -> diffrax.Solution:
+        """
+        Args:
+            ts: Array of timesteps at which the solution is evaluated, with shape ``(l,)``.
+            y0: Initial condition of the system state at time ``ts[0]``.
+            us: Two dimensional array of stacked input vectors at each timestep.
+                Shape ``(l, m)``. Defaults to None.
+
+        Returns:
+            diffrax solution object.
+        """
         # Add the augmentation dimensions to the inital state
         y0_aug = self.augmented_ic
         if not self.augmented_ic_learnable:
@@ -105,4 +153,14 @@ class ODESolver(eqx.Module):
     def get_augmented_trajectory(
         self, ts: Array, y0: Array, us: Array | None, **kwargs
     ) -> Array:
+        """
+        Args:
+            ts: Array of timesteps at which the solution is evaluated, with shape ``(l,)``.
+            y0: Initial condition of the system state at time ``ts[0]``.
+            us: Two dimensional array of stacked input vectors at each timestep.
+                Shape ``(l, m)``. Defaults to None.
+
+        Returns:
+            Solution of the ODE including the augmented states. Shape ``(l, N)``.
+        """
         return self.get_solution(ts, y0, us, **kwargs).ys
