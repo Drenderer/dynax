@@ -1,4 +1,3 @@
-# TODO: Add documentation
 # TODO: Add alternative interpolation methods
 
 import equinox as eqx
