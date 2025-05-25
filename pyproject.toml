@@ -1,0 +1,26 @@
+[project]
+name = "dynax"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Fabian Roth", email = "roth@cps.tu-darmstadt.de" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "diffrax>=0.7.0",
+    "klax",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+klax = { git = "https://github.com/Drenderer/klax", rev = "a6573058a3295b403d11d526055f55cb2ec8515b" }
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+]

@@ -1,0 +1,108 @@
+# TODO: Add documentation
+# TODO: Add alternative interpolation methods
+
+import equinox as eqx
+import diffrax
+from diffrax import backward_hermite_coefficients, CubicInterpolation
+
+import jax
+import jax.numpy as jnp
+
+from jaxtyping import Array
+from typing import Callable
+
+
+class ODESolver(eqx.Module):
+    func: Callable
+    solver: diffrax.AbstractSolver
+    stepsize_controller: diffrax.AbstractStepSizeController
+    max_steps: int = eqx.field(static=True)
+    is_augmented: bool = eqx.field(static=True)
+    augmented_ic: Array
+    augmented_ic_learnable: bool = eqx.field(static=True)
+
+    def __init__(
+        self,
+        func: Callable,
+        *,
+        augmentation: int | Array = 0,
+        augmented_ic_learnable: bool = False,
+        solver: diffrax.AbstractSolver = diffrax.Tsit5(),
+        stepsize_controller: diffrax.AbstractStepSizeController = diffrax.PIDController(
+            rtol=1e-6, atol=1e-6
+        ),
+        max_steps: int = 4096,
+    ):
+        self.func = func
+        self.augmented_ic_learnable = augmented_ic_learnable
+        if isinstance(augmentation, int):
+            self.augmented_ic = jnp.zeros(augmentation)
+        elif eqx.is_array(augmentation):
+            self.augmented_ic = augmentation
+        else:
+            raise ValueError(
+                f"augmentation must be an int or an array but got {augmentation}"
+            )
+
+        self.is_augmented = self.augmented_ic.size != 0
+
+        self.solver = solver
+        self.stepsize_controller = stepsize_controller
+        self.max_steps = max_steps
+
+    def __call__(
+        self, ts: Array, y0: Array, us: Array | None = None, **kwargs
+    ) -> Array:
+        ys = self.get_augmented_trajectory(ts, y0, us, **kwargs)
+        if self.is_augmented:
+            # Remove the augmentation dimension and return
+            return ys[:, : -self.augmented_ic.size]
+        else:
+            return ys
+
+    def get_solution(
+        self, ts: Array, y0: Array, us: Array | None, **kwargs
+    ) -> diffrax.Solution:
+        # Add the augmentation dimensions to the inital state
+        y0_aug = self.augmented_ic
+        if not self.augmented_ic_learnable:
+            y0_aug = jax.lax.stop_gradient(y0_aug)
+        y0 = jnp.concat([y0, y0_aug])
+
+        # If inputs are supplied, then interpolate them
+        if us is not None:
+            coeffs = backward_hermite_coefficients(ts, us)
+            u_interp = CubicInterpolation(ts, coeffs)
+        else:
+            u_interp = None
+
+        # Define the funtion to be intergrated
+        def _func(t, y, args):
+            u_interp, kwargs_ = args
+            if u_interp is None:
+                u = None
+            else:
+                u = u_interp.evaluate(t)
+
+            return self.func(t, y, u, **kwargs_)
+
+        # Solve the ODE using diffrax
+        solution = diffrax.diffeqsolve(
+            diffrax.ODETerm(_func),
+            self.solver,
+            t0=ts[0],
+            t1=ts[-1],
+            dt0=ts[1] - ts[0],
+            y0=y0,
+            args=(u_interp, kwargs),
+            saveat=diffrax.SaveAt(ts=ts),
+            stepsize_controller=self.stepsize_controller,
+            max_steps=self.max_steps,
+        )
+
+        return solution
+
+    def get_augmented_trajectory(
+        self, ts: Array, y0: Array, us: Array | None, **kwargs
+    ) -> Array:
+        return self.get_solution(ts, y0, us, **kwargs).ys
