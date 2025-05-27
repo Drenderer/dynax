@@ -13,6 +13,27 @@ from typing import Callable
 
 
 class ODESolver(eqx.Module):
+    R"""Integrate a function or submodule.
+
+    This class integrates :math:`\dot{y} = \text{func}(t, y, u, [\text{funcargs}])`
+    defined by a function or submodule ``func``. The integration is performed
+    using `diffrax <https://docs.kidger.site/diffrax/>`_.
+    This makes the ``ODESolver`` differentiable.
+
+    :Example:
+        >>> import jax.numpy as jnp
+        >>> from dynax import ODESolver
+        >>> def func(t, y, u):
+        ...     return -y + u
+        >>> model = ODESolver(func)
+        >>> ts = jnp.linspace(0, 1, 100)
+        >>> y0 = jnp.array([0.5, 1.0, 2.0])
+        >>> us = jnp.sin(ts)  # Example input
+        >>> solution = model(ts, y0, us)
+        >>> print(solution.shape)  # Should be (100, 3)
+        (100, 3)
+    """
+
     func: Callable
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
