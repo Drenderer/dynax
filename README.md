@@ -8,13 +8,13 @@ Machine learning tools for dynamic systems and more build on JAX
 After cloning the repository dynax can be installed via pip using
 
 ```bash
-pip install klax
+pip install dynax
 ```
 
 or uv using
 
 ```bash
-uv add klax
+uv add dynax
 ```
 
 ## Development
