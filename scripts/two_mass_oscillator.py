@@ -1,12 +1,13 @@
 # %% Imports
-from dynax import ODESolver
-
+from dynax import ISPHS, ODESolver, LyapunovNN, aprbs
+import klax
 
 import equinox as eqx
 from jaxtyping import Array
 import jax
 import jax.numpy as jnp
 from jax import random as jr
+from jax.nn.initializers import variance_scaling
 
 import matplotlib.pyplot as plt
 
@@ -59,20 +60,80 @@ true_system = ODESolver(deriv)
 key = jr.key(0)
 data_key, model_key, loader_key = jr.split(key, 3)
 
-num_ts = 100
-num_trajs = 2
-ts = jnp.linspace(0.0, 10.0, num_ts)
-y0 = jr.uniform(data_key, (num_trajs, 4))
-us = jr.uniform(data_key, (num_trajs, num_ts, 1), minval=-1.0, maxval=1.0)
+state_size = 4
+num_ts = 200
+num_trajs = 10
+ts = jnp.linspace(0.0, 25.0, num_ts)
+y0 = jr.uniform(data_key, (num_trajs, state_size))
+us_ = jax.vmap(aprbs, in_axes=(0, None, None))(jr.split(data_key, num_trajs), num_ts, 3)
+us = 1 - 2 * us_[:, :, None]
 ys = jax.vmap(true_system, in_axes=(None, 0, 0))(ts, y0, us)
 
 # %% Define and train sPHNN
-pass
+ficnn = klax.nn.FICNN(
+    in_size=state_size,
+    out_size="scalar",
+    width_sizes=[16, 16],
+    key=model_key,
+)
+hamiltonian = LyapunovNN(ficnn, state_size=state_size, key=model_key)
+poisson_matrix = klax.nn.ConstantSkewSymmetricMatrix(
+    state_size,
+    init=variance_scaling(5, "fan_avg", "truncated_normal"),
+    key=model_key,
+)
+resistive_matrix = klax.nn.ConstantSPDMatrix(
+    state_size,
+    epsilon=0.0,
+    init=variance_scaling(0.1, "fan_avg", "truncated_normal"),
+    key=model_key,
+)
+input_matrix = klax.nn.ConstantMatrix(
+    (state_size, 1),
+    init=variance_scaling(0.0001, "fan_avg", "truncated_normal"),
+    key=model_key,
+)
+deriv_model = ISPHS(hamiltonian, poisson_matrix, resistive_matrix, input_matrix)
+model = ODESolver(deriv_model)
+
+
+# %% Train the model using trajectory fitting
+def loss_fn(model, data, batch_axis):
+    ts, ys, us = data
+    ys_pred = jax.vmap(model, in_axes=batch_axis)(ts, ys[:, 0], us)
+    return jnp.mean(jnp.square(ys_pred - ys))
+
+try:
+    # Loading the model and history
+    model = eqx.tree_deserialise_leaves("two_mass_oscillator_model.eqx", model)
+    hist = klax.HistoryCallback.load("two_mass_oscillator_hist.pkl")
+except (FileNotFoundError):
+    model, hist = klax.fit(
+        model,
+        (ts, ys, us),
+        batch_axis=(None, 0, 0),
+        steps=100_000,
+        loss_fn=loss_fn,
+        key=model_key,
+    )
+
+    hist.save("two_mass_oscillator_hist.pkl")
+    eqx.tree_serialise_leaves("two_mass_oscillator_model.eqx", model)
+
+hist.plot()
 
 # %% Plot the prediction
 fix, ax = plt.subplots()
 
-ax.plot(ts, us[0, :, 0], label="$u$")
-ax.plot(ts, ys[0, :, :2], label=["$q_1$", "$q_2$"])
+test_key = jr.key(2)
+
+test_ts = jnp.linspace(0.0, 50.0, 2000)
+u = aprbs(test_key, test_ts.size, 1)[:, None]
+y0 = jr.uniform(test_key, (state_size,))
+ys_true = true_system(test_ts, y0, u)
+ys_pred = klax.finalize(model)(test_ts, y0, u)
+ax.plot(test_ts, u, label="$u$")
+ax.plot(test_ts, ys_true[:, :2], label=["$q_1$", "$q_2$"])
+ax.plot(test_ts, ys_pred[:, :2], "--", label=["$q_1$", "$q_2$"])
 ax.legend()
 plt.show()
