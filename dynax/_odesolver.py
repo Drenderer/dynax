@@ -1,5 +1,6 @@
 # TODO: Add alternative interpolation methods
 # TODO: Add option to pass u as a function.
+# TODO: Check the use of u=None for consistency and how to handle optional inputs better.
 
 import equinox as eqx
 import diffrax
@@ -9,7 +10,7 @@ import jax
 import jax.numpy as jnp
 
 from jaxtyping import Array, PyTree
-from typing import Callable
+from typing import cast, Callable
 
 
 class ODESolver(eqx.Module):
@@ -30,11 +31,11 @@ class ODESolver(eqx.Module):
         >>> y0 = jnp.array([0.5, 1.0, 2.0])
         >>> us = jnp.sin(ts)  # Example input
         >>> solution = model(ts, y0, us)
-        >>> print(solution.shape)  # Should be (100, 3)
+        >>> print(solution.shape)
         (100, 3)
     """
 
-    func: Callable
+    func: Callable[..., Array]
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
     max_steps: int = eqx.field(static=True)
@@ -44,8 +45,7 @@ class ODESolver(eqx.Module):
 
     def __init__(
         self,
-        func: Callable,
-        *,
+        func: Callable[..., Array],
         augmentation: int | Array = 0,
         augmented_ic_learnable: bool = False,
         solver: diffrax.AbstractSolver = diffrax.Tsit5(),
@@ -185,4 +185,5 @@ class ODESolver(eqx.Module):
         Returns:
             Solution of the ODE including the augmented states. Shape ``(k, N)``.
         """
-        return self.get_solution(ts, y0, us, funcargs).ys
+        ys = self.get_solution(ts, y0, us, funcargs).ys
+        return cast(Array, ys)

@@ -17,6 +17,10 @@ docs = [
     "sphinx>=8.2.3",
     "sphinx-book-theme>=1.1.4",
 ]
+plotting = [
+    "matplotlib>=3.10.3",
+    "notebook>=7.4.3",
+]
 
 [build-system]
 requires = ["hatchling"]
