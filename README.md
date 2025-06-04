@@ -19,7 +19,7 @@ uv add dynax
 
 ## Development
 
-The developers of klax use uv for managing dependencies and virtual environments. To setup the development environment with all required, optional, and development dependences simply clone the repository and run 
+The developers of dynax use uv for managing dependencies and virtual environments. To setup the development environment with all required, optional, and development dependences simply clone the repository and run 
 
 ```bash
 uv sync --all-extras --all-groups
