@@ -21,3 +21,6 @@ or uv
 ```bash
 uv add "dynax @ git+https://github.com/Drenderer/dynax.git@main"
 ```
+
+> [!WARNING]  
+> Make sure to include a commit hash to avoid breaking changes as dynax is still in early development.
