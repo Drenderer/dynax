@@ -2,25 +2,22 @@
 Machine learning tools for dynamic systems and more build on JAX
 
 
+## Documentation
+
+Check out [dynax documentation](https://drenderer.github.io/dynax/)
+
+
 
 ## Installation
 
-After cloning the repository dynax can be installed via pip using
+Dynax can be installed via pip 
 
 ```bash
-pip install dynax
+pip install "dynax @ git+https://github.com/Drenderer/dynax.git@main"
 ```
 
-or uv using
+or uv
 
 ```bash
-uv add dynax
-```
-
-## Development
-
-The developers of dynax use uv for managing dependencies and virtual environments. To setup the development environment with all required, optional, and development dependences simply clone the repository and run 
-
-```bash
-uv sync --all-extras --all-groups
+uv add "dynax @ git+https://github.com/Drenderer/dynax.git@main"
 ```
