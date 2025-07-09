@@ -2,26 +2,27 @@
 # TODO: Add option to pass u as a function.
 # TODO: Check the use of u=None for consistency and how to handle optional inputs better.
 
-import equinox as eqx
-import diffrax
-from diffrax import backward_hermite_coefficients, CubicInterpolation
+from collections.abc import Callable
+from typing import cast
 
+import diffrax
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-
+from diffrax import CubicInterpolation, backward_hermite_coefficients
 from jaxtyping import Array, PyTree
-from typing import cast, Callable
 
 
 class ODESolver(eqx.Module):
     R"""Integrate a function or submodule.
 
-    This class integrates :math:`\dot{y} = \text{func}(t, y, u, [\text{funcargs}])`
+    This class integrates $\dot{y} = \text{func}(t, y, u, [\text{funcargs}])$
     defined by a function or submodule ``func``. The integration is performed
-    using `diffrax <https://docs.kidger.site/diffrax/>`_.
+    using [diffrax](https://docs.kidger.site/diffrax/).
     This makes the ``ODESolver`` differentiable.
 
-    :Example:
+    Example:
+        ```python
         >>> import jax.numpy as jnp
         >>> from dynax import ODESolver
         >>> def func(t, y, u):
@@ -33,6 +34,8 @@ class ODESolver(eqx.Module):
         >>> solution = model(ts, y0, us)
         >>> print(solution.shape)
         (100, 3)
+        ```
+
     """
 
     func: Callable[..., Array]
@@ -54,7 +57,8 @@ class ODESolver(eqx.Module):
         ),
         max_steps: int = 4096,
     ):
-        """
+        """Initialize the ODESolver.
+
         Args:
             func: Function or submodel to integrate. The function arguments are
                 ``(t, y, u, [funcargs])`` with a scalar time ``t``, a ``N``-dimensional
@@ -69,14 +73,18 @@ class ODESolver(eqx.Module):
             augmented_ic_learnable: If ``True`` the initial condition of the augmented
                 state is updated during training. Defaults to False.
             solver: Specifies the diffax solver to use for numerical integration.
-                Defaults to diffrax.Tsit5().
             stepsize_controller: The diffrax stepsize controller to use for integration.
-                Defaults to diffrax.PIDController( rtol=1e-6, atol=1e-6 ).
             max_steps: The maximum number of steps to take before quitting the computation
-                unconditionally. Defaults to 4096.
+                unconditionally.
+
+        Note:
+            The arguments `solver`, `stepsize_controller`, and `max_steps` are passed directly
+            to the [`diffrax.diffeqsolve`](https://docs.kidger.site/diffrax/api/diffeqsolve/) function. For more information view the 
+            [diffrax documentation](https://docs.kidger.site/diffrax/).
 
         Raises:
             ValueError: If provided augmentation is neither an array or integer.
+
         """
         self.func = func
         self.augmented_ic_learnable = augmented_ic_learnable
@@ -101,15 +109,18 @@ class ODESolver(eqx.Module):
     def __call__(
         self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
     ) -> Array:
-        """
+        """Solve ODE.
+
         Args:
             ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
             y0: Initial condition of the system state at time ``ts[0]``.
             us: Two dimensional array of stacked input vectors at each timestep.
                 Shape ``(k, m)``. Defaults to None.
+            funcargs: Optional additional arguments to pass to the function ``func``.
 
         Returns:
             Solution of the ODE excluding the augmented states. Shape ``(k, n)``.
+
         """
         ys = self.get_augmented_trajectory(ts, y0, us, funcargs)
         if self.is_augmented:
@@ -121,15 +132,18 @@ class ODESolver(eqx.Module):
     def get_solution(
         self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
     ) -> diffrax.Solution:
-        """
+        """Return the ```diffrax.Solution``` object.
+
         Args:
             ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
             y0: Initial condition of the system state at time ``ts[0]``.
             us: Two dimensional array of stacked input vectors at each timestep.
                 Shape ``(k, m)``. Defaults to None.
+            funcargs: Optional additional arguments to pass to the function ``func``.
 
         Returns:
             diffrax solution object.
+
         """
         # Add the augmentation dimensions to the inital state
         y0_aug = self.augmented_ic
@@ -175,15 +189,18 @@ class ODESolver(eqx.Module):
     def get_augmented_trajectory(
         self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
     ) -> Array:
-        """
+        """Return the ODE solution including the augmented states.
+
         Args:
             ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
             y0: Initial condition of the system state at time ``ts[0]``.
             us: Two dimensional array of stacked input vectors at each timestep.
                 Shape ``(k, m)``. Defaults to None.
+            funcargs: Optional additional arguments to pass to the function ``func``.
 
         Returns:
             Solution of the ODE including the augmented states. Shape ``(k, N)``.
+            
         """
         ys = self.get_solution(ts, y0, us, funcargs).ys
         return cast(Array, ys)
