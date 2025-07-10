@@ -24,3 +24,7 @@ or uv
 ```bash
 uv add "dynax @ git+https://github.com/Drenderer/dynax.git@main"
 ```
+
+!!! warning
+    Make sure to include a commit hash to avoid breaking changes as dynax is still in early development.
+    To do this replace "main" in the git address with the commit hash of the version that you want to install.
