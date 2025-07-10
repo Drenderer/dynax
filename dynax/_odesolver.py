@@ -41,7 +41,7 @@ class ODESolver(eqx.Module):
     func: Callable[..., Array]
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
-    max_steps: int = eqx.field(static=True)
+    max_steps: int | None = eqx.field(static=True)
     is_augmented: bool = eqx.field(static=True)
     augmented_ic: Array
     augmented_ic_learnable: bool = eqx.field(static=True)
@@ -55,7 +55,7 @@ class ODESolver(eqx.Module):
         stepsize_controller: diffrax.AbstractStepSizeController = diffrax.PIDController(
             rtol=1e-6, atol=1e-6
         ),
-        max_steps: int = 4096,
+        max_steps: int | None = 4096,
     ):
         """Initialize the ODESolver.
 
@@ -75,7 +75,7 @@ class ODESolver(eqx.Module):
             solver: Specifies the diffax solver to use for numerical integration.
             stepsize_controller: The diffrax stepsize controller to use for integration.
             max_steps: The maximum number of steps to take before quitting the computation
-                unconditionally.
+                unconditionally. A value of ``None`` means no limit is imposed.
 
         Note:
             The arguments `solver`, `stepsize_controller`, and `max_steps` are passed directly
