@@ -1,6 +1,7 @@
 """Collection of functions for generating synthetic signals."""
 
 # TODO: Add tests for aprbs!
+# TODO: Implement (infinetly differentiable) perlin noise.
 
 import jax.numpy as jnp
 import jax.random as jr
@@ -22,11 +23,11 @@ def aprbs(
         key: JAX PRNGKey.
         length: Number of samples in the sequence.
         num_jumps: Number of jumps in the sequence.
-        initial_value: The inital value of the sequence. 
+        initial_value: The inital value of the sequence.
             If None, it is chosen randomly.
 
     Raises:
-        ValueError: If the number of jumps exceeds the number 
+        ValueError: If the number of jumps exceeds the number
             of possible jumping points (`length`-2).
 
     Returns:
@@ -68,25 +69,25 @@ def smooth_noise(
     Args:
         key: JAX PRNGKey.
         length: Number of samples in the sequence.
-        sigma: Standard deviation of the Gaussian kernel. 
+        sigma: Standard deviation of the Gaussian kernel.
             Larger values produce smoother outputs.
-        start_at_zero: If true starts the sequence at zero. 
+        start_at_zero: If true starts the sequence at zero.
             Otherwise it starts with a random normaly distributed value.
             Defaults to False.
 
     Returns:
         Array with shape `(length,)` describing the smooth noise.
     """
-    if sigma <= 0.:
+    if sigma <= 0.0:
         raise ValueError("Kernel sigma must be positive!")
     if length < 0:
         raise ValueError("Signal lenth must be non-negative")
     elif length == 0:
         return jnp.empty((0,))
 
-    kernel_radius = int(3*sigma)    # Cutoff kernel at 3 sigma
-    x = jnp.arange(-kernel_radius, kernel_radius+1)
-    kernel = jnp.exp(-0.5 * (x/sigma)**2)
+    kernel_radius = int(3 * sigma)  # Cutoff kernel at 3 sigma
+    x = jnp.arange(-kernel_radius, kernel_radius + 1)
+    kernel = jnp.exp(-0.5 * (x / sigma) ** 2)
     kernel /= jnp.sum(kernel)
 
     # Check if the kernel edges are close to machine precision
@@ -97,7 +98,7 @@ def smooth_noise(
 
     white = jr.normal(key, (length,))
     if start_at_zero:
-        white = white.at[:kernel_radius+1].set(0.)
-    white /= jnp.sqrt(jnp.sum(kernel**2))   # normalize
+        white = white.at[: kernel_radius + 1].set(0.0)
+    white /= jnp.sqrt(jnp.sum(kernel**2))  # normalize
 
     return convolve(white, kernel, mode="same")
