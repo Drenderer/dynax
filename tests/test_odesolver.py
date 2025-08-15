@@ -1,7 +1,8 @@
 # TODO: Add more extensive tests.
 
-from dynax import ODESolver
 from jax import numpy as jnp
+
+from dynax import ODESolver
 
 
 def test_odesolver_with_args():
