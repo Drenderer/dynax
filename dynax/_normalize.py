@@ -100,20 +100,34 @@ def normalize_std(
     Returns:
         Tuple containing $\alpha_i$ and $\tau$.
     """
-    # Treat the edge cases where an exact solution is available
-    if std_a is None:
+    # Treat the edge case where an exact solution is available
+    if std_v is None and std_a is None:
         alpha = 1 / std_y
-        if std_v is None:
-            tau = jnp.array(1.0)  # Best arbitrary choice
-        else:
-            _temp = alpha * std_v
-            tau = jnp.sum(_temp) / jnp.sum(_temp**2)
+        tau = jnp.array(1.0)  # Best arbitrary choice
         return alpha, tau
 
-    if std_v is None:
-        raise ValueError("std_v cannot be None if std_a is provided.")
+    # Initial guess
+    eps = 1e-10
+    alpha0 = 1.0 / (
+        std_y + eps
+    )  # Avoid devision by zero if one std_y is zero.
 
-    # Numerically solve the optimization problem
+    if std_v is None:
+        std_v = jnp.zeros_like(std_y)
+        tau_v = 1
+    else:
+        _temp = alpha0 * std_v
+        tau_v = jnp.sum(_temp) / jnp.sum(_temp**2)
+    if std_a is None:
+        std_a = jnp.zeros_like(std_y)
+        tau_a = 1
+    else:
+        _temp = alpha0 * std_a
+        tau_a = jnp.sqrt(jnp.sum(_temp) / jnp.sum(_temp**2))
+
+    log_tau_init = 0.5 * float(jnp.log(tau_v * tau_a))
+
+    # Define optimization problem
     c_y = w_y * std_y
     c_v = w_v * std_v
     c_a = w_a * std_a
@@ -132,19 +146,13 @@ def normalize_std(
         loss = -(numerator(tau) ** 2) / denominator(tau)
         return jnp.sum(loss)
 
-    # Initial guess
-    eps = 1e-10
-    alpha0 = 1.0 / (std_y + eps)
-    tau1 = jnp.mean(1.0 / (alpha0 * (std_v + eps)))
-    tau2 = jnp.sqrt(jnp.mean(1.0 / (alpha0 * (std_a + eps))))
-    log_tau_init = 0.5 * float(jnp.log(jnp.abs(tau1) * jnp.abs(tau2)))
-
     # Find starting bracket
     radius = 0.1
     a, b, c, fa, fb, fc, nf = bracket(
         fun, xa=log_tau_init - radius, xb=log_tau_init + radius
     )
-    print(f"Took {nf} function calls to find bracket.")
+    if verbosity > 1:
+        print(f"Took {nf} function calls to find bracket.")
 
     # Brent’s method in log_tau space
     res = minimize_scalar(
