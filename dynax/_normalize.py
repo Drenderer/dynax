@@ -99,6 +99,7 @@ def normalize_std(
 
     Returns:
         Tuple containing $\alpha_i$ and $\tau$.
+
     """
     # Treat the edge case where an exact solution is available
     if std_v is None and std_a is None:

@@ -18,7 +18,7 @@ class ConvexLyapunov(eqx.Module):
     function suitable for showing global stability. It performs the following
     transformation on a given function $f:\mathbb{R}^n \rightarrow \mathbb{R}$:
     $$ F(x) = f(x) - f(x_0) - \frac{\partial f}{\partial x} \bigg\vert_{x_0}\cdot (x-x_0) + \epsilon\left\lVert x-x_0 \right\rVert^2. $$
-    This ensures the resulting function $F$ has a unique minimum at $x_0$ and 
+    This ensures the resulting function $F$ has a unique minimum at $x_0$ and
     is positive definite due to the is a small regularization term $\epsilon$.
     """
 
@@ -53,6 +53,7 @@ class ConvexLyapunov(eqx.Module):
                 Defaults to either `jax.numpy.float32` or `jax.numpy.float64`
                 depending on whether JAX is in 64-bit mode.
             key: PRNG key for random initialization of the minimum.
+
         """
         dtype = default_floating_dtype() if dtype is None else dtype
 
@@ -70,6 +71,7 @@ class ConvexLyapunov(eqx.Module):
 
         Returns:
             Value of the Lyapunov function at x.
+
         """
         x_0 = (
             self.minimum

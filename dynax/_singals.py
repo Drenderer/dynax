@@ -32,6 +32,7 @@ def aprbs(
 
     Returns:
         Array with shape `(length,)` describing the APRBS.
+
     """
     keys = jr.split(key, 3)
     ts = jnp.arange(length)
@@ -77,6 +78,7 @@ def smooth_noise(
 
     Returns:
         Array with shape `(length,)` describing the smooth noise.
+
     """
     if sigma <= 0.0:
         raise ValueError("Kernel sigma must be positive!")

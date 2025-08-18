@@ -79,7 +79,7 @@ class ODESolver(eqx.Module):
 
         Note:
             The arguments `solver`, `stepsize_controller`, and `max_steps` are passed directly
-            to the [`diffrax.diffeqsolve`](https://docs.kidger.site/diffrax/api/diffeqsolve/) function. For more information view the 
+            to the [`diffrax.diffeqsolve`](https://docs.kidger.site/diffrax/api/diffeqsolve/) function. For more information view the
             [diffrax documentation](https://docs.kidger.site/diffrax/).
 
         Raises:
@@ -107,7 +107,11 @@ class ODESolver(eqx.Module):
         self.max_steps = max_steps
 
     def __call__(
-        self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
+        self,
+        ts: Array,
+        y0: Array,
+        us: Array | None = None,
+        funcargs: PyTree = None,
     ) -> Array:
         """Solve ODE.
 
@@ -130,7 +134,11 @@ class ODESolver(eqx.Module):
             return ys
 
     def get_solution(
-        self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
+        self,
+        ts: Array,
+        y0: Array,
+        us: Array | None = None,
+        funcargs: PyTree = None,
     ) -> diffrax.Solution:
         """Return the ```diffrax.Solution``` object.
 
@@ -187,7 +195,11 @@ class ODESolver(eqx.Module):
         return solution
 
     def get_augmented_trajectory(
-        self, ts: Array, y0: Array, us: Array | None = None, funcargs: PyTree = None
+        self,
+        ts: Array,
+        y0: Array,
+        us: Array | None = None,
+        funcargs: PyTree = None,
     ) -> Array:
         """Return the ODE solution including the augmented states.
 
@@ -200,7 +212,7 @@ class ODESolver(eqx.Module):
 
         Returns:
             Solution of the ODE including the augmented states. Shape ``(k, N)``.
-            
+
         """
         ys = self.get_solution(ts, y0, us, funcargs).ys
         return cast(Array, ys)

@@ -1,34 +1,32 @@
 # %% Imports
-from dynax import ODESolver
-
-from klax import fit
-
 import equinox as eqx
-from jaxtyping import Array
 import jax
 import jax.numpy as jnp
-from jax import random as jr
-
 import matplotlib.pyplot as plt
+from jax import random as jr
+from jaxtyping import Array
+from klax import fit
+
+from dynax import ODESolver
 
 
 # %% Define the system
 class Derivative(eqx.Module):
-    A: Array
-    B: Array
+    a_matrix: Array
+    b_matrix: Array
 
-    def __init__(self, A: Array, B: Array):
-        self.A = A
-        self.B = B
+    def __init__(self, a_matrix: Array, b_matrix: Array):
+        self.a_matrix = a_matrix
+        self.b_matrix = b_matrix
 
     def __call__(self, t, y, u):
-        return -self.A @ y + self.B @ u
+        return -self.a_matrix @ y + self.b_matrix @ u
 
 
-A = jnp.array([[0.0, 2.0], [-1.0, 0.1]])
-B = jnp.array([[0.0], [1.0]])
+a_matrix = jnp.array([[0.0, 2.0], [-1.0, 0.1]])
+b_matrix = jnp.array([[0.0], [1.0]])
 
-true_system = ODESolver(Derivative(A, B))
+true_system = ODESolver(Derivative(a_matrix, b_matrix))
 
 ts = jnp.linspace(0.0, 10.0, 100)
 y0 = jnp.array([1.0, 0.0])
@@ -43,9 +41,9 @@ plt.plot(ts, ys)
 
 key = jr.key(0)
 m_key, l_key = jr.split(key, 2)
-A = 0.01 * jr.normal(m_key, shape=(2, 2))
-B = 0.01 * jr.normal(m_key, shape=(2, 1))
-learned_system = ODESolver(Derivative(A, B))
+a_matrix = 0.01 * jr.normal(m_key, shape=(2, 2))
+b_matrix = 0.01 * jr.normal(m_key, shape=(2, 1))
+learned_system = ODESolver(Derivative(a_matrix, b_matrix))
 
 
 def loss_fn(model, data, batch_axis):
