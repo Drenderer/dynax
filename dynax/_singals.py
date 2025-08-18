@@ -104,3 +104,50 @@ def smooth_noise(
     white /= jnp.sqrt(jnp.sum(kernel**2))  # normalize
 
     return convolve(white, kernel, mode="same")
+
+
+def bandlimited_noise(
+    key: PRNGKeyArray,
+    length: int,
+    max_freq: float = 20,
+    dt: float | None = None,
+    normalize: bool = True,
+) -> Array:
+    """Generate 1D band-limited random noise using Fourier synthesis.
+
+    Note:
+        The signal is periodic due to the Fourier-based construction.
+
+    Args:
+        key: JAX PRNGKey.
+        length: Number of points
+        max_freq: Cutoff frequency (max Fourier mode kept)
+        dt: Time increment between samples. If none provided, uses `dt=1/length`.
+            Defaults to None.
+        normalize: If true, normalizes the signal to zero mean and unit variance.
+
+    Returns:
+        Smooth noise of length N
+
+    """
+    # --- step 1: generate Gaussian random complex coefficients ---
+    # rfft is used since we want real-valued output
+    key_r, key_i = jr.split(key)
+    coeff_shape = (length // 2 + 1,)
+    coeffs = jr.normal(key_r, coeff_shape) + 1j * jr.normal(key_i, coeff_shape)
+    coeffs *= length
+
+    # --- step 2: apply frequency cutoff ---
+    if dt is None:
+        dt = 1 / length if length != 0 else 1
+    freqs = jnp.fft.rfftfreq(length, d=dt)
+    coeffs = jnp.where(freqs <= max_freq, coeffs, 0)
+
+    # --- step 3: inverse FFT to get smooth signal ---
+    signal = jnp.fft.irfft(coeffs, n=length)
+
+    # --- step 4: normalize to unit std (optional) ---
+    if normalize:
+        signal = (signal - jnp.mean(signal)) / jnp.std(signal)
+
+    return signal
