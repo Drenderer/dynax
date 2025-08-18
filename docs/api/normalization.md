@@ -2,4 +2,4 @@
 title: Normalization
 ---
 
-::: dynax.normalize_std
+::: dynax.normalization_coefficients

@@ -9,7 +9,7 @@ from jaxtyping import Array, Float, PRNGKeyArray
 from matplotlib import pyplot as plt
 from scipy.optimize import OptimizeResult, bracket, minimize_scalar
 
-from dynax import normalize_std, smooth_noise
+from dynax import normalization_coefficients, smooth_noise
 
 
 @jax.jit
@@ -85,11 +85,11 @@ std_tt = jnp.std(y_tts)
 maxiter = 50
 verbosity = 3
 tol = 1e-8
-alpha, tau = normalize_std(
+alpha, tau = normalization_coefficients(
     std, std_t, std_tt, tol=tol, maxiter=500, verbosity=3
 )
-# alpha, tau = normalize_std(std, std_t, None, tol=tol, maxiter=500, verbosity=3)
-# alpha, tau = normalize_std(std, None, None, tol=tol, maxiter=500, verbosity=3)
+# alpha, tau = normalization_coefficients(std, std_t, None, tol=tol, maxiter=500, verbosity=3)
+# alpha, tau = normalization_coefficients(std, None, None, tol=tol, maxiter=500, verbosity=3)
 
 
 # %% Apply normalization:

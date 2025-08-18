@@ -2,27 +2,26 @@
 from typing import Literal, cast
 
 from jax import numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, ArrayLike, Float
 from scipy.optimize import OptimizeResult, bracket, minimize_scalar
 
 # TODO: Add tests!
-# TODO: Finalize the edgecases: y and a given v not.
 # TODO: Add more userfriendly normalization
 
-type Scalar = Float[Array, "1"]
+type Scalar = Float[ArrayLike, "1"]
 
 
-def normalize_std(
-    std_y: Float[Array, "n"],
-    std_v: Float[Array, "n"] | None = None,
-    std_a: Float[Array, "n"] | None = None,
+def normalization_coefficients(
+    std_y: Float[ArrayLike, "n"],
+    std_v: Float[ArrayLike, "n"] | None = None,
+    std_a: Float[ArrayLike, "n"] | None = None,
     w_y: float = 1.0,
     w_v: float = 1.0,
     w_a: float = 1.0,
     tol: float = 1e-6,
     maxiter: int = 50,
     verbosity: Literal[0, 1, 2, 3] = 1,
-) -> tuple[Float[Array, "n"], Scalar]:
+) -> tuple[Float[ArrayLike, "n"], Scalar]:
     r"""Compute normalization factors for signals and their derivatives while preserving derivative consistency.
 
     Consider a trajectory $y(t) \in \mathbb{R}^n$ together with its derivatives
@@ -101,6 +100,8 @@ def normalize_std(
         Tuple containing $\alpha_i$ and $\tau$.
 
     """
+    std_y = jnp.where(std_y==0,1,std_y) # Avoid division by zero
+
     # Treat the edge case where an exact solution is available
     if std_v is None and std_a is None:
         alpha = 1 / std_y
@@ -154,6 +155,8 @@ def normalize_std(
     )
     if verbosity > 1:
         print(f"Took {nf} function calls to find bracket.")
+        if verbosity > 2:
+            print(f"Starting bracket: (a, b, c) = ({a}, {b}, {c}) with values (fa, fb, fc) = ({fa}, {fb}, {fc})")
 
     # Brent’s method in log_tau space
     res = minimize_scalar(
