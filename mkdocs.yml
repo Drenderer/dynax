@@ -77,3 +77,4 @@ nav:
     - api/isphs.md
     - api/lyapunov_function.md
     - api/signals.md
+    - api/normalization.md

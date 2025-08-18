@@ -40,23 +40,24 @@ class ISPHS(eqx.Module):
         R"""Initialize the ISPHS.
 
         Args:
-            hamiltonian: Function or submodel computing the Hamiltonian $\mathcal{H}(x)$ 
+            hamiltonian: Function or submodel computing the Hamiltonian $\mathcal{H}(x)$
                 as a function of the state vector.
-            structure_matrix: Function or submodel computing the structure matrix $J(x)$ 
-                as a function of the state vector. From the port-Hamiltonian modeling view 
+            structure_matrix: Function or submodel computing the structure matrix $J(x)$
+                as a function of the state vector. From the port-Hamiltonian modeling view
                 the structure matrix is required to be skew-symmetric, i.e., $J = -J^T$.
-            dissipation_matrix: Function or submodel computing the dissipation matrix $R(x)$ 
-                as a function of the state vector. From the port-Hamiltonian modeling view 
-                the dissipation matrix is required to be symmetric positive semi-definite, 
+            dissipation_matrix: Function or submodel computing the dissipation matrix $R(x)$
+                as a function of the state vector. From the port-Hamiltonian modeling view
+                the dissipation matrix is required to be symmetric positive semi-definite,
                 i.e., $R = R^T,\,R\succ0$. Alternatively, `None` can be used to indicate
                 that the system does not have a dissipation matrix $R$.
-            input_matrix: Function or submodel computing the input matrix $G(x)$ as a 
+            input_matrix: Function or submodel computing the input matrix $G(x)$ as a
                 function of the state vector. Alternatively, `None` can be used to indicate
                 that the system does not have external inputs $u$. Defaults to None.
 
         Tipp:
-            Consider using [klax](https://drenderer.github.io/klax/api/training/#klax.fit) 
+            Consider using [klax](https://drenderer.github.io/klax/api/training/#klax.fit)
             for convenient implementations of [matrix valued functions](https://drenderer.github.io/klax/api/nn/matrices/).
+
         """
         self.hamiltonian = hamiltonian
         self.structure_matrix = structure_matrix
@@ -80,6 +81,7 @@ class ISPHS(eqx.Module):
 
         Returns:
             Time derivative of the state vector $x$ as a 1D array of shape `(n,)`.
+
         """
         structure_matrix = self.structure_matrix(x)
 
