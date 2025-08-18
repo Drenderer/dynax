@@ -1,27 +1,26 @@
-# %% Define the function
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, TypeVar, cast
 
 from jax import numpy as jnp
-from jaxtyping import Array, ArrayLike, Float
-from scipy.optimize import OptimizeResult, bracket, minimize_scalar
+from jaxtyping import Array, Float
+from scipy.optimize import OptimizeResult, minimize_scalar
 
 # TODO: Add tests!
 # TODO: Add more userfriendly normalization
 
-type Scalar = Float[ArrayLike, "1"]
+type Scalar = Float[Array, "1"]
 
 
 def normalization_coefficients(
-    std_y: Float[ArrayLike, "n"],
-    std_v: Float[ArrayLike, "n"] | None = None,
-    std_a: Float[ArrayLike, "n"] | None = None,
+    std_y: Float[Array, "n"] | float,
+    std_v: Float[Array, "n"] | float | None = None,
+    std_a: Float[Array, "n"] | float | None = None,
     w_y: float = 1.0,
     w_v: float = 1.0,
     w_a: float = 1.0,
     tol: float = 1e-6,
     maxiter: int = 50,
     verbosity: Literal[0, 1, 2, 3] = 1,
-) -> tuple[Float[ArrayLike, "n"], Scalar]:
+) -> tuple[Float[Array, "n"], Scalar]:
     r"""Compute normalization factors for signals and their derivatives while preserving derivative consistency.
 
     Consider a trajectory $y(t) \in \mathbb{R}^n$ together with its derivatives
@@ -100,10 +99,17 @@ def normalization_coefficients(
         Tuple containing $\alpha_i$ and $\tau$.
 
     """
-    std_y = jnp.where(std_y==0,1,std_y) # Avoid division by zero
+    if TYPE_CHECKING:
+        std_y = jnp.array(std_y)
+
+    assert w_y >= 0.0, "Weight w_y must be non-negative."
+    assert w_v >= 0.0, "Weight w_v must be non-negative."
+    assert w_a >= 0.0, "Weight w_a must be non-negative."
+
+    std_y = jnp.where(std_y == 0, 1, std_y)  # Avoid division by zero
 
     # Treat the edge case where an exact solution is available
-    if std_v is None and std_a is None:
+    if (std_v is None and std_a is None) or (w_v == w_a == 0.0):
         alpha = 1 / std_y
         tau = jnp.array(1.0)  # Best arbitrary choice
         return alpha, tau
@@ -114,13 +120,13 @@ def normalization_coefficients(
         std_y + eps
     )  # Avoid devision by zero if one std_y is zero.
 
-    if std_v is None:
+    if std_v is None or w_v == 0.0:
         std_v = jnp.zeros_like(std_y)
         tau_v = 1
     else:
         _temp = alpha0 * std_v
         tau_v = jnp.sum(_temp) / jnp.sum(_temp**2)
-    if std_a is None:
+    if std_a is None or w_a == 0.0:
         std_a = jnp.zeros_like(std_y)
         tau_a = 1
     else:
@@ -148,20 +154,14 @@ def normalization_coefficients(
         loss = -(numerator(tau) ** 2) / denominator(tau)
         return jnp.sum(loss)
 
-    # Find starting bracket
+    # Starting bracket
     radius = 0.1
-    a, b, c, fa, fb, fc, nf = bracket(
-        fun, xa=log_tau_init - radius, xb=log_tau_init + radius
-    )
-    if verbosity > 1:
-        print(f"Took {nf} function calls to find bracket.")
-        if verbosity > 2:
-            print(f"Starting bracket: (a, b, c) = ({a}, {b}, {c}) with values (fa, fb, fc) = ({fa}, {fb}, {fc})")
+    bracket = (log_tau_init - radius, log_tau_init + radius)
 
     # Brent’s method in log_tau space
     res = minimize_scalar(
         fun,
-        bracket=(a, b, c),
+        bracket=bracket,
         method="brent",
         tol=tol,
         options={"maxiter": maxiter, "xtol": tol, "disp": verbosity},
