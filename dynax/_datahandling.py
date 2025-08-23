@@ -9,7 +9,6 @@ from jax import numpy as jnp
 from jaxtyping import Array
 from numpy.typing import ArrayLike, NDArray
 
-
 type Index1D = int | slice | NDArray | Array
 
 ## Define converters
@@ -212,29 +211,36 @@ class TrajectoryCollection(eqx.Module):
         state_size = self.ys.shape[-1]
         if self.us is not None:
             input_size = self.us.shape[-1]
-            return f"{self.__class__.__name__} containing {batch_size} {"trajectories" if batch_size==1 else "trajectory"} with {time_size} timestamps, state size {state_size} and input size {input_size}."
+            return f"{self.__class__.__name__} containing {batch_size} {'trajectories' if batch_size == 1 else 'trajectory'} with {time_size} timestamps, state size {state_size} and input size {input_size}."
         else:
-            return f"{self.__class__.__name__} containing {batch_size} {"trajectories" if batch_size==1 else "trajectory"} with {time_size} timestamps and state size {state_size}."
+            return f"{self.__class__.__name__} containing {batch_size} {'trajectories' if batch_size == 1 else 'trajectory'} with {time_size} timestamps and state size {state_size}."
 
     # WIP WIP WIP
-    def __getitem__(self, index: Index1D | tuple[Index1D, Index1D]) -> "TrajectoryCollection":
+    def __getitem__(
+        self, index: Index1D | tuple[Index1D, Index1D]
+    ) -> "TrajectoryCollection":
         """Index a `TrajectoryCollection` like a numpy array along the batch and time axes."""
         if isinstance(index, tuple):
             # Slice one axis after the other to slice without loosing any dimensions.
-            def slice3d_without_dimension_loss(arr: NDArray|None, idx: tuple) -> NDArray|None:
+            def slice3d_without_dimension_loss(
+                arr: NDArray | None, idx: tuple
+            ) -> NDArray | None:
                 if arr is None:
                     return None
                 idx0, idx1 = idx
                 arr = arr[idx0]
-                arr = arr if arr.ndim == 3 else arr[None]   # Add back dimension if it was lost
+                arr = (
+                    arr if arr.ndim == 3 else arr[None]
+                )  # Add back dimension if it was lost
                 arr = arr[:, idx1]
-                return arr if arr.ndim == 3 else arr[:, None]   # Add back dimension if it was lost
+                return (
+                    arr if arr.ndim == 3 else arr[:, None]
+                )  # Add back dimension if it was lost
 
             new_ts = self.ts[index[1]]
             new_ts = new_ts if new_ts.ndim == 1 else new_ts[None]
 
             new_ys = slice3d_without_dimension_loss(self.ys, index)
-
 
             sliced_fields = dict(
                 ts=_as_numpy_1darray(self.ts[index[1]]),
@@ -246,11 +252,15 @@ class TrajectoryCollection(eqx.Module):
             )
 
         if isinstance(index, tuple):
-            index = tuple(slice(i, i+1) if isinstance(i, int) else i for i in index) # type: ignore
-            sliced_ts = self.ts[index[1]] # type: ignore
+            index = tuple(
+                slice(i, i + 1) if isinstance(i, int) else i for i in index
+            )  # type: ignore
+            sliced_ts = self.ts[index[1]]  # type: ignore
         else:
             sliced_ts = self.ts
-            index = slice(index, index+1) if isinstance(index, int) else index
+            index = (
+                slice(index, index + 1) if isinstance(index, int) else index
+            )
         sliced_fields = dict(
             ts=sliced_ts,
             ys=np.atleast_3d(self.ys[index]),
@@ -266,15 +276,14 @@ class TrajectoryCollection(eqx.Module):
 def slice_keeping_dimensions(arr: NDArray, index: tuple) -> NDArray:
     ndim = arr.ndim
     for n, i in enumerate(index):
-        arr = arr[i]
-        arr = arr if arr.ndim == ndim else arr[(slice(None),)*n+(None,)]   # Add back dimension if it was lost
+        arr = arr[(slice(None),) * n + (i,)]
+        arr = (
+            arr if arr.ndim == ndim else arr[(slice(None),) * n + (None,)]
+        )  # Add back dimension if it was lost
     return arr
 
-# I thinkt the above function is buggy
-# TODO: Add tests
 
-arr = np.zeros((1,2,3,4,5))
-assert slice_keeping_dimensions(arr, (0,0)).shape == arr.shape
+# TODO: Add tests
 
 # %%
 traj = Trajectory(ts=jnp.arange(3), ys=jnp.zeros((3, 3)), us=[1, 2, 3])
@@ -282,6 +291,8 @@ traj = Trajectory(ts=jnp.arange(3), ys=jnp.zeros((3, 3)), us=[1, 2, 3])
 print(traj)
 
 # %%
-dset = TrajectoryCollection(ts=np.arange(10), ys=np.zeros((2, 10, 3)), us=np.zeros((2, 10, 1)))
+dset = TrajectoryCollection(
+    ts=np.arange(10), ys=np.zeros((2, 10, 3)), us=np.zeros((2, 10, 1))
+)
 print(dset)
 dset[4, 3:5]
