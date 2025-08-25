@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -6,7 +7,17 @@ from dynax._datahandling import (
     Trajectory,
     TrajectoryCollection,
     _as_nonsqueezing_index,
+    differentiate,
 )
+
+
+def test_differentiate():
+    ts = jnp.linspace(0, 1, 100)
+    ys = (ts, jnp.stack([jnp.sin(ts), jnp.cos(ts)], axis=1))
+    y_ts = (jnp.ones_like(ts), jnp.stack([jnp.cos(ts), -jnp.sin(ts)], axis=1))
+    y_ts_ = differentiate(ts, ys)
+    assert jax.tree.structure(y_ts) == jax.tree.structure(y_ts_)
+    assert jax.tree.map(jnp.allclose, y_ts, y_ts_)
 
 
 @pytest.mark.parametrize(
@@ -97,6 +108,44 @@ class TestTrajectory:
         traj[1] = {"ys": np.ones((1, 2))}
         assert np.allclose(traj.ys[1], 1)
 
+    def test_save_and_load(self, tmp_path):
+        ts = np.arange(5)
+        ys = np.random.randn(5, 3)
+        y_ts = np.random.randn(5, 3)
+        us = np.random.randn(5, 2)
+        traj = Trajectory(ts, ys, y_ts, us, dtype=np.float64)
+        file = tmp_path / "traj.npz"
+        traj.save(file)
+        loaded = Trajectory.load(file)
+        np.testing.assert_allclose(loaded.ts, ts)
+        np.testing.assert_allclose(loaded.ys, ys)
+        np.testing.assert_allclose(loaded.y_ts, y_ts)
+        np.testing.assert_allclose(loaded.us, us)
+
+    def test_save_and_load_partial_fields(self, tmp_path):
+        ts = np.arange(3)
+        ys = np.random.randn(3, 2)
+        # Only ys, no y_ts or us
+        traj = Trajectory(ts, ys)
+        file = tmp_path / "traj.npz"
+        traj.save(file)
+        loaded = Trajectory.load(file)
+        np.testing.assert_allclose(loaded.ts, ts)
+        np.testing.assert_allclose(loaded.ys, ys)
+        assert loaded._y_ts is None
+        assert loaded._us is None
+
+    def test_save_overwrite_protection(self, tmp_path):
+        ts = np.arange(3)
+        ys = np.zeros((3, 1))
+        traj = Trajectory(ts, ys)
+        file = tmp_path / "traj.npz"
+        traj.save(file)
+        with pytest.raises(FileExistsError):
+            traj.save(file)
+        # Should succeed with overwrite=True
+        traj.save(file, overwrite=True)
+
 
 class TestTrajectoryCollection:
     def test_from_trajectories(self):
@@ -132,11 +181,36 @@ class TestTrajectoryCollection:
         "ts,ys,y_ts,us",
         [
             (np.zeros((2, 2)), np.zeros((2, 2)), None, None),  # ts shape
-            (np.zeros(3), np.zeros((3, 1)), None, None), # ys shape
-            (np.zeros(3), np.zeros((1, 3, 2)), np.zeros((3,)), None), # y_ts shape
-            (np.zeros(3), np.zeros((1, 3, 2)), None, np.zeros((3,4,))), # us shape
-            (np.zeros(3), np.zeros((1, 2, 2)), None, None), # time doesn't match
-            (np.zeros(3), np.zeros((1, 3, 2)), np.zeros((1, 3, 3)), None), # state doesn't match
+            (np.zeros(3), np.zeros((3, 1)), None, None),  # ys shape
+            (
+                np.zeros(3),
+                np.zeros((1, 3, 2)),
+                np.zeros((3,)),
+                None,
+            ),  # y_ts shape
+            (
+                np.zeros(3),
+                np.zeros((1, 3, 2)),
+                None,
+                np.zeros(
+                    (
+                        3,
+                        4,
+                    )
+                ),
+            ),  # us shape
+            (
+                np.zeros(3),
+                np.zeros((1, 2, 2)),
+                None,
+                None,
+            ),  # time doesn't match
+            (
+                np.zeros(3),
+                np.zeros((1, 3, 2)),
+                np.zeros((1, 3, 3)),
+                None,
+            ),  # state doesn't match
         ],
     )
     def test_check_init_invalid(self, ts, ys, y_ts, us):
@@ -155,9 +229,48 @@ class TestTrajectoryCollection:
         assert sub.y_ts.shape == (1, 1, 2)
         assert sub.us.shape == (1, 1, 3)
 
+    def test_gettrajectory(self):
+        ts = np.arange(4)
+        ys = np.zeros((10, 4, 2))
+        y_ts = np.zeros((10, 4, 2))
+        us = np.zeros((10, 4, 3))
+        coll = TrajectoryCollection(ts=ts, ys=ys, y_ts=y_ts, us=us)
+        traj = coll.get_trajectory(0)
+        assert isinstance(traj, Trajectory)
+        np.testing.assert_allclose(traj.ts, coll.ts)
+        np.testing.assert_allclose(traj.ys, coll.ys[0])
+        np.testing.assert_allclose(traj.y_ts, coll.y_ts[0])
+        np.testing.assert_allclose(traj.us, coll.us[0])
+
     def test_setitem(self):
         ts = np.arange(2)
         ys = np.zeros((2, 2, 2))
         coll = TrajectoryCollection(ts=ts, ys=ys)
         coll[(1, 1)] = {"ys": np.ones((1, 2))}
         assert np.allclose(coll.ys[1, 1], 1)
+
+    def test_save_and_load(self, tmp_path):
+        ts = np.arange(4)
+        ys = np.random.randn(2, 4, 3)
+        y_ts = np.random.randn(2, 4, 3)
+        us = np.random.randn(2, 4, 2)
+        dset = TrajectoryCollection(ts, ys, y_ts, us)
+        file = tmp_path / "dset.npz"
+        dset.save(file)
+        loaded = TrajectoryCollection.load(file)
+        np.testing.assert_allclose(loaded.ts, ts)
+        np.testing.assert_allclose(loaded.ys, ys)
+        np.testing.assert_allclose(loaded.y_ts, y_ts)
+        np.testing.assert_allclose(loaded.us, us)
+
+    def test_save_and_load_partial_fields(self, tmp_path):
+        ts = np.arange(3)
+        ys_col = np.random.randn(2, 3, 2)
+        dset = TrajectoryCollection(ts, ys_col)
+        file = tmp_path / "dset.npz"
+        dset.save(file)
+        loaded = TrajectoryCollection.load(file)
+        np.testing.assert_allclose(loaded.ts, ts)
+        np.testing.assert_allclose(loaded.ys, ys_col)
+        assert loaded._y_ts is None
+        assert loaded._us is None

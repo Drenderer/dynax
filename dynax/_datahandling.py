@@ -1,15 +1,30 @@
 from collections.abc import Sequence
-from typing import Any, Literal, overload
+from pathlib import Path
+from typing import Literal, overload
 
 import equinox as eqx
+import jax
 import numpy as np
-from jaxtyping import Array
+from diffrax import CubicInterpolation, backward_hermite_coefficients
+from jaxtyping import Array, ArrayLike, Float, PyTree
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
 from ._misc import default_floating_dtype
 
 # Single axis indexing type for numpy arrays
 type Index1D = int | slice | NDArray[np.integer] | NDArray[np.bool] | Array
+
+
+def differentiate[T: PyTree](ts: Float[Array, "k"], ys: T) -> T:
+    """Approximate the derivatives of a timeseries.
+
+    Returns:
+        PyTree of derivatives of `ys` evaluated at `ts`.
+
+    """
+    coeffs = backward_hermite_coefficients(ts, ys)
+    interp = CubicInterpolation(ts, coeffs)
+    return jax.vmap(interp.derivative)(ts)
 
 
 @overload
@@ -86,6 +101,23 @@ class _BaseTrajectory(eqx.Module):
     @us.setter
     def us(self, us):
         self._us = us
+
+    def save(self, file: Path, overwrite: bool = False):
+        if not overwrite and file.exists():
+            raise FileExistsError(
+                "File already exists. Set overwrite=True to overwrite."
+            )
+        data = dict(ts=self.ts, ys=self.ys)
+        if self._y_ts is not None:
+            data["y_ts"] = self._y_ts
+        if self._us is not None:
+            data["us"] = self._us
+        np.savez(file, **data, allow_pickle=False)
+
+    @classmethod
+    def load(cls, file):
+        data = np.load(file, allow_pickle=False)
+        return cls(**data)
 
 
 class Trajectory(_BaseTrajectory):
@@ -361,3 +393,18 @@ class TrajectoryCollection(_BaseTrajectory):
             except ValueError as e:
                 e.add_note("Cannot set value.")
                 raise
+
+    def get_trajectory(self, index: int):
+        """Retrieve trajectory at a given index.
+
+        Args:
+            index: Index of the trajectory along the batch dimension.
+
+        Returns:
+            Trajectory.
+
+        """
+        new_ys = self.ys[index]
+        new_y_ts = None if self._y_ts is None else self._y_ts[index]
+        new_us = None if self._us is None else self._us[index]
+        return Trajectory(ts=self.ts, ys=new_ys, y_ts=new_y_ts, us=new_us)
