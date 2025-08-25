@@ -1,76 +1,15 @@
-# %%
-from collections.abc import Callable, Sequence
-from dataclasses import fields
-from typing import Any, Literal, TypeVarTuple, Unpack, overload
+from collections.abc import Sequence
+from typing import Any, Literal, overload
 
 import equinox as eqx
 import numpy as np
-from jax import numpy as jnp
-from jaxtyping import Array, Integer
-from numpy.typing import ArrayLike, NDArray
+from jaxtyping import Array
+from numpy.typing import ArrayLike, DTypeLike, NDArray
+
+from ._misc import default_floating_dtype
 
 # Single axis indexing type for numpy arrays
 type Index1D = int | slice | NDArray[np.integer] | NDArray[np.bool] | Array
-
-## Define converters
-
-# def _as_numpy_1darray(ts: Any) -> NDArray:
-#     """Similar to numpy's `atleast_1d`, but raises a ValueError if the input has more than one dimension."""
-#     ts = np.atleast_1d(ts)
-#     if ts.ndim != 1:
-#         raise ValueError("Array can not have more than one dimensions.")
-#     return ts
-
-# def _as_numpy_2darray(x: Any) -> NDArray:
-#     """Similar to numpy's `atleast_2d`, except:
-#     - appends the new axis in the last dimension.
-#     - raises a ValueError if the input has more than two dimensions.
-#     """  # noqa: D205
-#     x = np.asarray(x)
-#     if x.ndim == 0:
-#         return x.reshape(1, 1)
-#     elif x.ndim == 1:
-#         return x[:, np.newaxis]
-#     elif x.ndim == 2:
-#         return x
-#     else:
-#         raise ValueError("Array can not have more than two dimensions.")
-
-
-# def _as_numpy_3darray(x: Any) -> NDArray:
-#     """Similar to numpy's `atleast_3d`, except:
-#     - appends the new axis/axes in the last dimension(s).
-#     - raises a ValueError if the input has more than three dimensions.
-#     """  # noqa: D205
-#     x = np.asarray(x)
-#     if x.ndim == 0:
-#         return x.reshape(1, 1, 1)
-#     elif x.ndim == 1:
-#         return x[:, np.newaxis, np.newaxis]
-#     elif x.ndim == 2:
-#         return x[:, :, np.newaxis]
-#     elif x.ndim == 3:
-#         return x
-#     else:
-#         raise ValueError("Array can not have more than three dimensions.")
-
-
-# def _as_numpy_2darray_or_none(x: Any) -> NDArray | None:
-#     if x is None:
-#         return None
-#     return _as_numpy_2darray(x)
-
-
-# def _as_numpy_3darray_or_none(x: Any) -> NDArray | None:
-#     if x is None:
-#         return None
-#     return _as_numpy_3darray(x)
-
-
-def _as_numpy_or_none(x: Any) -> NDArray | None:
-    if x is None:
-        return None
-    return np.asarray(x)
 
 
 @overload
@@ -103,18 +42,84 @@ def _as_nonsqueezing_index(index):
     return index
 
 
-class Trajectory(eqx.Module):
+class _BaseTrajectory(eqx.Module):
+    """Base class for trajectories."""
+
+    ts: NDArray
+    ys: NDArray
+    _y_ts: NDArray | None
+    _us: NDArray | None
+
+    def __init__(
+        self,
+        ts: ArrayLike,
+        ys: ArrayLike,
+        y_ts: ArrayLike | None = None,
+        us: ArrayLike | None = None,
+        dtype: DTypeLike = None,
+    ):
+        dtype = default_floating_dtype() if dtype is None else dtype
+        self.ts = np.asarray(ts, dtype=dtype)
+        self.ys = np.asarray(ys, dtype=dtype)
+        self._y_ts = None if y_ts is None else np.asarray(y_ts, dtype=dtype)
+        self._us = None if us is None else np.asarray(us, dtype=dtype)
+
+    # Making y_ts, and us a property enables more intuitive typing
+    # since any type checker knows that traj.y_ts is of type NDArray
+    # and not of type None.
+    @property
+    def y_ts(self) -> NDArray:
+        if self._y_ts is None:
+            raise ValueError("Trajectory does not contain derivatives y_ts.")
+        return self._y_ts
+
+    @y_ts.setter
+    def y_ts(self, y_ts):
+        self._y_ts = y_ts
+
+    @property
+    def us(self) -> NDArray:
+        if self._us is None:
+            raise ValueError("Trajectory does not contain inputs us.")
+        return self._us
+
+    @us.setter
+    def us(self, us):
+        self._us = us
+
+
+class Trajectory(_BaseTrajectory):
     """Represents a single trajectory."""
 
-    ts: NDArray = eqx.field(converter=np.asarray)
-    ys: NDArray = eqx.field(converter=np.asarray)
-    y_ts: NDArray | None = eqx.field(converter=_as_numpy_or_none, default=None)
-    us: NDArray | None = eqx.field(converter=_as_numpy_or_none, default=None)
+    def __init__(
+        self,
+        ts: ArrayLike,
+        ys: ArrayLike,
+        y_ts: ArrayLike | None = None,
+        us: ArrayLike | None = None,
+        dtype: DTypeLike = None,
+    ):
+        """Create a Trajectory from array-like objects.
+
+        This will convert all inputs to numpy arrays.
+
+        Args:
+            ts: Array of timestamps with `shape=(k,)`
+            ys: Array of states with `shape=(k, n)`
+            y_ts: Optional array of state derivatives with `shape=(k, n)`. Defaults to None.
+            us: Optional array of inputs with `shape=(k, m)`. Defaults to None.
+            dtype: Optionally specify the dtype for the conversion to numpy arrays.
+                Defaults to either `jax.numpy.float32` or `jax.numpy.float64`
+                depending on whether JAX is in 64-bit mode.
+
+        """
+        super().__init__(ts, ys, y_ts, us, dtype)
 
     def __check_init__(self):
         """Check if the provided fields are compatible.
 
         Raises ValueError if:
+            - The dimensionalities of `ts`, `ys`, `y_ts` or `us` are incorrect.
             - The the first dimension of `ys`, `y_ts` or `us` do not match `ts.size`
             - The the second dimension of `y_ts` does not match the second dimension of `ys`
         """
@@ -122,46 +127,43 @@ class Trajectory(eqx.Module):
             raise ValueError("Timestamps ts must be 1-dimensinonal.")
         if self.ys.ndim != 2:
             raise ValueError("States ys must be 2-dimensinonal.")
-        if self.y_ts is not None and self.y_ts.ndim != 2:
+        if self._y_ts is not None and self._y_ts.ndim != 2:
             raise ValueError("States derivatives y_ts must be 2-dimensinonal.")
-        if self.us is not None and self.us.ndim != 2:
+        if self._us is not None and self._us.ndim != 2:
             raise ValueError("Inputs us must be 2-dimensinonal.")
 
         time_size = self.ts.size
-        for field in ["ys", "y_ts", "us"]:
+        for field in ["ys", "_y_ts", "_us"]:
             f = getattr(self, field)
             if f is None:
                 continue
             if f.shape[0] != time_size:
                 raise ValueError(
-                    f"Shape missmatch between ts of size {time_size} and {field} of shape {f.shape}."
+                    f"Shape missmatch between ts of size {time_size} and {field.lstrip('_')} of shape {f.shape}."
                 )
-        if self.y_ts is not None and self.y_ts.shape[1] != self.ys.shape[1]:
+        if self._y_ts is not None and self._y_ts.shape[1] != self.ys.shape[1]:
             raise ValueError(
-                f"Shape missmatch between ys of shape {self.ys.shape} and y_ts of shape {self.y_ts.shape}."
+                f"Shape missmatch between ys of shape {self.ys.shape} and y_ts of shape {self._y_ts.shape}."
             )
 
     def __str__(self) -> str:
         """Get string representation."""
         time_size = self.ts.size
         state_size = self.ys.shape[1]
-        if self.us is not None:
-            input_size = self.us.shape[1]
-            return f"{self.__class__.__name__} with {time_size} timestamps, state size {state_size} and input size {input_size}."
+        if self._us is not None:
+            input_size = self._us.shape[1]
+            return f"{self.__class__.__name__} with {time_size} {'timestamp' if time_size == 1 else 'timestamps'}, state size {state_size} and input size {input_size}."
         else:
-            return f"{self.__class__.__name__} with {time_size} timestamps and state size {state_size}."
+            return f"{self.__class__.__name__} with {time_size} {'timestamp' if time_size == 1 else 'timestamps'} and state size {state_size}."
 
-    def __getitem__(self, index: Index1D) -> "Trajectory":
+    def __getitem__(self, index: Index1D | tuple[Index1D]) -> "Trajectory":
         """Index a `Trajectory` like a numpy array along the time axis."""
-        sliced_fields = dict(
-            ts=self.ts[index],
-            ys=np.atleast_2d(self.ys[index]),
-            y_ts=None
-            if self.y_ts is None
-            else np.atleast_2d(self.y_ts[index]),
-            us=None if self.us is None else np.atleast_2d(self.us[index]),
-        )
-        return Trajectory(**sliced_fields)
+        index = _as_nonsqueezing_index(index)
+        new_ts = self.ts[index]
+        new_ys = self.ys[index]
+        new_y_ts = None if self._y_ts is None else self._y_ts[index]
+        new_us = None if self._us is None else self._us[index]
+        return Trajectory(new_ts, new_ys, new_y_ts, new_us)
 
     def __setitem__(
         self,
@@ -172,30 +174,71 @@ class Trajectory(eqx.Module):
 
         Args:
             index: 1D slice index.
-            values: Dictionary of values. E.g.: `{"ts": 1, "ys": np.array([...]), ...}`
+            values: Dictionary of values.
+
+        Example:
+            ```python
+            >>> import numpy as np
+            >>> from dynax import Trajectory
+            >>> traj = Trajectory(np.arange(5), np.zeros((5,3)))
+            >>> traj[2] = dict(ts=2.5, ys=np.array([1,2,3]))
+            >>> traj.ts
+            array([0. , 1. , 2.5, 3. , 4. ], dtype=float32)
+            ```
 
         """
         for name, value in values.items():
-            getattr(self, name)[index] = value
+            try:
+                getattr(self, name)[index] = value
+            except ValueError as e:
+                e.add_note("Cannot set value.")
+                raise
 
 
-class TrajectoryCollection(eqx.Module):
+class TrajectoryCollection(_BaseTrajectory):
     """Represents a collection of trajectories sharing the same timestamps."""
 
-    ts: NDArray = eqx.field(converter=np.asarray)
-    ys: NDArray = eqx.field(converter=np.asarray)
-    y_ts: NDArray | None = eqx.field(converter=_as_numpy_or_none, default=None)
-    us: NDArray | None = eqx.field(converter=_as_numpy_or_none, default=None)
+    def __init__(
+        self,
+        ts: ArrayLike,
+        ys: ArrayLike,
+        y_ts: ArrayLike | None = None,
+        us: ArrayLike | None = None,
+        dtype: DTypeLike = None,
+    ):
+        """Create a TrajectoryCollection from array-like objects.
+
+        This will convert all inputs to numpy arrays.
+
+        Args:
+            ts: Array of timestamps with `shape=(k,)`
+            ys: Array of states with `shape=(b, k, n)`
+            y_ts: Optional array of state derivatives with `shape=(b, k, n)`. Defaults to None.
+            us: Optional array of inputs with `shape=(b, k, m)`. Defaults to None.
+            dtype: Optionally specify the dtype for the conversion to numpy arrays.
+                Defaults to either `jax.numpy.float32` or `jax.numpy.float64`
+                depending on whether JAX is in 64-bit mode.
+
+        """
+        dtype = default_floating_dtype() if dtype is None else dtype
+        self.ts = np.asarray(ts, dtype=dtype)
+        self.ys = np.asarray(ys, dtype=dtype)
+        self._y_ts = None if y_ts is None else np.asarray(y_ts, dtype=dtype)
+        self._us = None if us is None else np.asarray(us, dtype=dtype)
 
     @classmethod
-    def from_trajectories(cls, trajectories: Sequence[Trajectory]):
+    def from_trajectories(
+        cls, trajectories: Sequence[Trajectory], dtype: DTypeLike = None
+    ):
         """Create a collection by stacking trajectories with the same timestamps.
 
         Args:
             trajectories: Sequence of trajectories.
+            dtype: Optional dtype argument provided to `np.stack`.
+                Defaults to None, which let's numpy decide which dtype to use.
 
         Raises:
-            ValueError: If the trajectories timestamps differ of the sequence is empty.
+            ValueError: If the trajectories timestamps differ or the sequence is empty.
 
         Returns:
             `TrajectoryCollection` of stacked trajectories.
@@ -211,16 +254,38 @@ class TrajectoryCollection(eqx.Module):
                 "All trajectories must share the same timestamps."
             )
         data = dict(ts=_ts)
-        for field_name in ["ys", "y_ts", "us"]:
+        for field_name in ["ys", "_y_ts", "_us"]:
             data[field_name] = np.stack(
                 [getattr(traj, field_name) for traj in trajectories], axis=0
             )
-        return cls(**data)
+        ts = _ts
+        ys = np.stack([traj.ys for traj in trajectories], dtype=dtype)
+        y_ts_mask = [traj._y_ts is not None for traj in trajectories]
+        if all(y_ts_mask):
+            y_ts = np.stack([traj.y_ts for traj in trajectories], dtype=dtype)
+        elif not any(y_ts_mask):
+            y_ts = None
+        else:
+            raise ValueError(
+                "Some trajectories have y_ts while others do not. Cannot stack."
+            )
+        us_mask = [traj._us is not None for traj in trajectories]
+        if all(us_mask):
+            us = np.stack([traj.us for traj in trajectories], dtype=dtype)
+        elif not any(us_mask):
+            us = None
+        else:
+            raise ValueError(
+                "Some trajectories have us while others do not. Cannot stack."
+            )
+
+        return cls(ts=ts, ys=ys, y_ts=y_ts, us=us)
 
     def __check_init__(self):
         """Check if the provided fields are compatible.
 
         Raises ValueError if:
+            - The dimensionalities of `ts`, `ys`, `y_ts` or `us` are incorrect.
             - The the first dimension of `ys`, `y_ts` or `us` do not match.
             - The the second dimension of `ys`, `y_ts` or `us` do not match `ts.size`
             - The the second dimension of `y_ts` does not match the second dimension of `ys`
@@ -229,14 +294,14 @@ class TrajectoryCollection(eqx.Module):
             raise ValueError("Timestamps ts must be 1-dimensinonal.")
         if self.ys.ndim != 3:
             raise ValueError("States ys must be 3-dimensinonal.")
-        if self.y_ts is not None and self.y_ts.ndim != 3:
+        if self._y_ts is not None and self._y_ts.ndim != 3:
             raise ValueError("States derivatives y_ts must be 3-dimensinonal.")
-        if self.us is not None and self.us.ndim != 3:
+        if self._us is not None and self._us.ndim != 3:
             raise ValueError("Inputs us must be 3-dimensinonal.")
 
         batch_size = self.ys.shape[0]
         time_size = self.ts.size
-        for field in ["ys", "y_ts", "us"]:
+        for field in ["ys", "_y_ts", "_us"]:
             f = getattr(self, field)
             if f is None:
                 continue
@@ -246,11 +311,14 @@ class TrajectoryCollection(eqx.Module):
                 )
             if f.shape[1] != time_size:
                 raise ValueError(
-                    f"Shape missmatch between ts of size {time_size} and {field} of shape {f.shape}."
+                    f"Shape missmatch between ts of size {time_size} and {field.lstrip('_')} of shape {f.shape}."
                 )
-        if self.y_ts is not None and self.y_ts.shape[-1] != self.ys.shape[-1]:
+        if (
+            self._y_ts is not None
+            and self._y_ts.shape[-1] != self.ys.shape[-1]
+        ):
             raise ValueError(
-                f"Shape missmatch between ys of shape {self.ys.shape} and y_ts of shape {self.y_ts.shape}."
+                f"Shape missmatch between ys of shape {self.ys.shape} and y_ts of shape {self._y_ts.shape}."
             )
 
     def __str__(self) -> str:
@@ -258,8 +326,8 @@ class TrajectoryCollection(eqx.Module):
         batch_size = self.ys.shape[0]
         time_size = self.ts.size
         state_size = self.ys.shape[-1]
-        if self.us is not None:
-            input_size = self.us.shape[-1]
+        if self._us is not None:
+            input_size = self._us.shape[-1]
             return f"{self.__class__.__name__} containing {batch_size} {'trajectories' if batch_size == 1 else 'trajectory'} with {time_size} timestamps, state size {state_size} and input size {input_size}."
         else:
             return f"{self.__class__.__name__} containing {batch_size} {'trajectories' if batch_size == 1 else 'trajectory'} with {time_size} timestamps and state size {state_size}."
@@ -269,14 +337,11 @@ class TrajectoryCollection(eqx.Module):
     ) -> "TrajectoryCollection":
         """Index a `TrajectoryCollection` like a numpy array along the batch and time axes."""
         index = _as_nonsqueezing_index(index)
-
-        sliced_fields = dict(
-            ts=self.ts[index[1]] if len(index) == 2 else self.ts,
-            ys=self.ys[index],
-            y_ts=None if self.y_ts is None else self.y_ts[index],
-            us=None if self.us is None else self.us[index],
-        )
-        return TrajectoryCollection(**sliced_fields)
+        new_ts = self.ts[index[1]] if len(index) == 2 else self.ts
+        new_ys = self.ys[index]
+        new_y_ts = None if self._y_ts is None else self._y_ts[index]
+        new_us = None if self._us is None else self._us[index]
+        return TrajectoryCollection(new_ts, new_ys, new_y_ts, new_us)
 
     def __setitem__(
         self,
@@ -287,11 +352,12 @@ class TrajectoryCollection(eqx.Module):
 
         Args:
             index: 1D slice index.
-            values: Dictionary of values. E.g.: `{"ts": 1, "ys": np.array([...]), ...}`
+            values: Dictionary of values.`
 
         """
         for name, value in values.items():
-            getattr(self, name)[index] = value
-
-    def approximate_state_derivative(self):
-        pass
+            try:
+                getattr(self, name)[index] = value
+            except ValueError as e:
+                e.add_note("Cannot set value.")
+                raise

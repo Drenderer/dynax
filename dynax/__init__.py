@@ -1,3 +1,5 @@
+from ._datahandling import Trajectory as Trajectory
+from ._datahandling import TrajectoryCollection as TrajectoryCollection
 from ._isphs import ISPHS as ISPHS
 from ._lyapunov_function import (
     ConvexLyapunov as ConvexLyapunov,
