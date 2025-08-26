@@ -55,7 +55,8 @@ def test_as_nonsqueezing_index(index, expected_shape):
     result = arr[idx]
     assert result.shape == expected_shape
 
-#TODO: Test dtype
+
+# TODO: Test dtype
 class TestTrajectory:
     def test_basic_init(self, getkey):
         ts = jnp.linspace(0, 1, 5)
@@ -77,7 +78,7 @@ class TestTrajectory:
 
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.complex64])
     def test_dtype(self, dtype):
-        traj = Trajectory(ts=[1,2,3], ys=jnp.zeros((3,2)), dtype=dtype)
+        traj = Trajectory(ts=[1, 2, 3], ys=jnp.zeros((3, 2)), dtype=dtype)
         assert traj.ts.dtype == dtype
         assert traj.ys.dtype == dtype
 
@@ -284,7 +285,6 @@ class TestTrajectoryCollection:
 
 
 class TestDerivativeCollection:
-
     def test_from_trajectory_collection(self, getkey):
         ts = jnp.arange(3)
         ys = jr.normal(getkey(), (2, 3, 2))

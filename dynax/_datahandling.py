@@ -521,7 +521,9 @@ class DerivativeCollection(BaseTrajectory):
             )
 
         # Check us
-        if self.has_us and (self.us.shape[0] != batch_size or self.us.ndim != 2):
+        if self.has_us and (
+            self.us.shape[0] != batch_size or self.us.ndim != 2
+        ):
             raise ValueError(
                 f"Shape missmatch for 'y_ts'. Expected shape {(batch_size, 'any')!r} but got {self.us.shape}."
             )
