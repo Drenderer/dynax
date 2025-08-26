@@ -58,6 +58,8 @@ plugins:
         - diffrax.PIDController
         - diffrax.Solution
         - jax.nn.initializers.Initializer
+        - numpy.dtype
+        - jax._src.typing.SupportsDType
 
 markdown_extensions:
   - admonition
@@ -78,3 +80,4 @@ nav:
     - api/lyapunov_function.md
     - api/signals.md
     - api/normalization.md
+    - api/datahandling.md
