@@ -1,15 +1,13 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol, overload
 
-import equinox as eqx
 import jax
 import numpy as np
 from diffrax import CubicInterpolation, backward_hermite_coefficients
 from jax import numpy as jnp
-from jaxtyping import Array, ArrayLike, DTypeLike, Float, PyTree, Shaped
-from numpy.typing import ArrayLike, NDArray
+from jaxtyping import Array, ArrayLike, DTypeLike, Float, PyTree
+from numpy.typing import NDArray
 
 from ._misc import default_floating_dtype
 
@@ -149,7 +147,7 @@ class BaseTrajectory:
         self.y_ts = y_ts
         self.us = us
 
-    def save(self, file: Path | str, overwrite: bool = False):
+    def save(self, file: Path | str, overwrite: bool = False) -> None:
         file = Path(file)
         if not overwrite and file.exists():
             raise FileExistsError(
@@ -167,7 +165,7 @@ class BaseTrajectory:
         jnp.savez(file, **data, allow_pickle=False)
 
     @classmethod
-    def load(cls, file):
+    def load[T](cls: type[T], file) -> T:
         # Usage of np here: jnp.load() for .npz files returns numpy arrays anyways.
         data = np.load(file, allow_pickle=False)
         return cls(**data)
@@ -202,7 +200,7 @@ class Trajectory(BaseTrajectory):
         super().__init__(ts=ts, ys=ys, y_ts=y_ts, us=us, dtype=dtype)
         self.__check_init__()
 
-    def __check_init__(self):
+    def __check_init__(self) -> None:
         """Check if the provided fields are compatible.
 
         Raises ValueError if:
@@ -261,7 +259,7 @@ class Trajectory(BaseTrajectory):
         self,
         index: Index1D,
         values: dict[Literal["ts", "ys", "y_ts", "us"], ArrayLike],
-    ):
+    ) -> None:
         """Set the values at a given index along the time axis.
 
         Args:
@@ -319,7 +317,7 @@ class TrajectoryCollection(BaseTrajectory):
     @classmethod
     def from_trajectories(
         cls, trajectories: Sequence[Trajectory], dtype: DTypeLike | None = None
-    ):
+    ) -> "TrajectoryCollection":
         """Create a collection by stacking trajectories with the same timestamps.
 
         Args:
@@ -366,7 +364,7 @@ class TrajectoryCollection(BaseTrajectory):
 
         return cls(ts=ts, ys=ys, y_ts=y_ts, us=us)
 
-    def __check_init__(self):
+    def __check_init__(self) -> None:
         """Check if the provided fields are compatible.
 
         Raises ValueError if:
@@ -435,7 +433,7 @@ class TrajectoryCollection(BaseTrajectory):
         self,
         index: Index1D | tuple[Index1D] | tuple[Index1D, Index1D],
         values: dict[Literal["ts", "ys", "y_ts", "us"], ArrayLike],
-    ):
+    ) -> None:
         """Set the values at a given index along the batch and/or time axes/axis.
 
         Args:
@@ -450,7 +448,7 @@ class TrajectoryCollection(BaseTrajectory):
                 e.add_note("Cannot set value.")
                 raise
 
-    def get_trajectory(self, index: int):
+    def get_trajectory(self, index: int) -> Trajectory:
         """Retrieve trajectory at a given index.
 
         Args:
@@ -495,7 +493,7 @@ class DerivativeCollection(BaseTrajectory):
         super().__init__(ts=ts, ys=ys, y_ts=y_ts, us=us, dtype=dtype)
         self.__check_init__()
 
-    def __check_init__(self):
+    def __check_init__(self) -> None:
         """Check if the provided fields are compatible.
 
         Raises ValueError if:
