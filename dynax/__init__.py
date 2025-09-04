@@ -1,6 +1,4 @@
-from ._datahandling import DerivativeCollection as DerivativeCollection
 from ._datahandling import Trajectory as Trajectory
-from ._datahandling import TrajectoryCollection as TrajectoryCollection
 from ._datahandling import differentiate as differentiate
 from ._isphs import ISPHS as ISPHS
 from ._lyapunov_function import (
