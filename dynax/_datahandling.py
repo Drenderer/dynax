@@ -17,7 +17,11 @@ type Index = Index1D | tuple[Index1D, ...]
 
 
 def differentiate[T: PyTree](ts: Float[Array, "k"], ys: T) -> T:
-    """Approximate the derivatives of a timeseries.
+    """Approximate the derivatives of a timeseries via cubic interpolation.
+
+    Args:
+        ts: The time of each observation.
+        ys: The observations themselves. Should use NaN to indicate missing data.
 
     Returns:
         PyTree of derivatives of `ys` evaluated at `ts`.
@@ -96,6 +100,15 @@ class Trajectory(eqx.Module):
         return self._us
 
     def __getitem__(self, index: Index) -> "Trajectory":
+        """Index all fields simultaniously.
+
+        Args:
+            index: Any index into a `jax.numpy` array.
+
+        Returns:
+            Trajectory with every field indexed by `index`.
+
+        """
         return jax.tree.map(lambda x: x[index], self)
 
     @staticmethod
