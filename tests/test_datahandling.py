@@ -10,12 +10,16 @@ from dynax._datahandling import (
 
 
 def test_differentiate():
-    ts = jnp.linspace(0, 1, 100)
+    ts = jnp.linspace(0, 1, 1000, dtype=jax.numpy.float64)
     ys = (ts, jnp.stack([jnp.sin(ts), jnp.cos(ts)], axis=1))
     y_ts = (jnp.ones_like(ts), jnp.stack([jnp.cos(ts), -jnp.sin(ts)], axis=1))
     y_ts_ = differentiate(ts, ys)
     assert jax.tree.structure(y_ts) == jax.tree.structure(y_ts_)
-    assert jax.tree.map(jnp.allclose, y_ts, y_ts_)
+    assert all(
+        jax.tree.map(
+            lambda x, y: jnp.allclose(x, y, rtol=1e-3, atol=1e-3), y_ts, y_ts_
+        )
+    )
 
 
 class TestTrajectory:
