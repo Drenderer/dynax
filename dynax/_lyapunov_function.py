@@ -17,8 +17,8 @@ class ConvexLyapunov(eqx.Module):
     This module normalizes a convex function by ensuring it is a valid Lyapunov
     function suitable for showing global stability. It performs the following
     transformation on a given function $f:\mathbb{R}^n \rightarrow \mathbb{R}$:
-    $$ F(x) = f(x) - f(x_0) - \frac{\partial f}{\partial x} \bigg\vert_{x_0}\cdot (x-x_0) + \epsilon\left\lVert x-x_0 \right\rVert^2. $$
-    This ensures the resulting function $F$ has a unique minimum at $x_0$ and
+    $$ F(x) = f(x) - f(x^\ast) - \frac{\partial f}{\partial x} \bigg\vert_{x^\ast}\cdot (x-x^\ast) + \epsilon\left\lVert x-x^\ast \right\rVert^2. $$
+    This ensures the resulting function $F$ has a unique minimum at $x^\ast$ and
     is positive definite due to the is a small regularization term $\epsilon$.
     """
 
@@ -42,11 +42,11 @@ class ConvexLyapunov(eqx.Module):
 
         Args:
             func: Convex function $f:\mathbb{R}^n \rightarrow \mathbb{R}$
-            state_size: State size $n$ needed to determine the size for the minimum $x_0$.
+            state_size: State size $n$ needed to determine the size for the minimum $x^\ast$.
             minimum_init: Initializer for the minimum location.
                 Can be any function with signature `(key, shape, dtype) -> Array`
                 but typically is a JAX initializer.
-            minimum_learnable: If True, the minimum location $x_0$ is learnable. Otherwise,
+            minimum_learnable: If True, the minimum location $x^\ast$ is learnable. Otherwise,
                 its gradients are stopped, preventing updates during optimization.
             epsilon: Small value to ensure the Lyapunov function is positive definite.
             dtype: The dtype to use for the minimum.
@@ -73,17 +73,18 @@ class ConvexLyapunov(eqx.Module):
             Value of the Lyapunov function at x.
 
         """
-        x_0 = (
+        x_star = (
             self.minimum
             if self.minimum_learnable
             else jax.lax.stop_gradient(self.minimum)
         )
 
-        f_0, grad_f_0 = jax.value_and_grad(self.func)(x_0)
+        f_star, grad_f_star = jax.value_and_grad(self.func)(x_star)
         f = self.func(x)
-        # Ensure the convex function has a minimum (at x_0)
-        f_norm = f - (f_0 + jnp.inner((x - x_0), grad_f_0))
+        dx = x - x_star
+        # Ensure the convex function has a minimum (at x_star)
+        f_norm = f - (f_star + jnp.inner(dx, grad_f_star))
         # Add a small regularization term to ensure positive definiteness
-        f_norm += self.epsilon * jnp.inner(x, x)
+        f_norm += self.epsilon * jnp.inner(dx, dx)
 
         return f_norm
