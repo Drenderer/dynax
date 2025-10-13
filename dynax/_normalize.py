@@ -31,17 +31,17 @@ def normalization_coefficients(
     $\tilde v(t)$.
 
     To maintain consistency, the same scaling factor $\alpha_i$ must be applied
-    to $y_i, v_i, a_i$. Additionally, we allow a rescaling of time,
-    $\tilde t = \tau t$, to gain more flexibility.
+    to $y_i, v_i, a_i$. To regain some flexibility we can allow a rescaling of time
+    $\tilde t = \frac{1}{\tau} t$.
     With this, the rescaled signals are
     $$
-        \tilde t = \tau t, \quad
+        \tilde t = \frac{1}{\tau} t, \quad
         \tilde y_i = \alpha_i y_i, \quad
         \tilde v_i = \tau \alpha_i v_i, \quad
         \tilde a_i = \tau^2 \alpha_i a_i.
     $$
 
-    This function finds the scaling factors $\alpha \in \mathbb{R}^n$ and
+    `normalization_coefficients` finds the scaling factors $\alpha \in \mathbb{R}^n$ and
     $\tau \in \mathbb{R}$ that make the standard deviations of
     $\tilde y, \tilde v$ and  $\tilde a$
     as close as possible to one, while preserving derivative consistency:
@@ -51,7 +51,7 @@ def normalization_coefficients(
     $$
 
     This is done via the following optimization problem:
-    Given standard deviations $\sigma(y), \sigma(v), \sigma(a)$, minimize
+    Given standard deviations $\sigma(y_i), \sigma(v_i), \sigma(a_i)$, minimize
     $$
         \sum_i \big[
             w_y (\sigma(\tilde y_i) - 1)^2 \;+\;
@@ -65,8 +65,13 @@ def normalization_coefficients(
         The problem reduces to a one-dimensional optimization over $\tau$, with
         $$
             \alpha_i(\tau) = \frac{N_i(\tau)}{D_i(\tau)}, \quad
-            \tau^\star = \underset{\tau}{\operatorname{argmin}}
+            \tau = \underset{\tau}{\operatorname{argmin}}
                 \sum_i -\frac{N_i(\tau)^2}{D_i(\tau)}.
+        $$
+        Here,
+        $$
+            N_i(\tau) = w_y \sigma(y_i) + w_v \tau \sigma(v_i) + w_a \tau^2 \sigma(a_i), \quad
+            D_i(\tau) = w_y \sigma(y_i)^2 + w_v \tau^2 \sigma(v_i)^2 + w_a \tau^4 \sigma(a_i)^2.
         $$
         This function solves the reformulated problem using `scipy.optimize.minimize`
         with the BFGS method. Additionally:
