@@ -68,12 +68,12 @@ def normalization_coefficients(
             \tau = \underset{\tau}{\operatorname{argmin}}
                 \sum_i -\frac{N_i(\tau)^2}{D_i(\tau)}.
         $$
-        Here,
+        Here, the nominator and denominator are given by
         $$
             N_i(\tau) = w_y \sigma(y_i) + w_v \tau \sigma(v_i) + w_a \tau^2 \sigma(a_i), \quad
             D_i(\tau) = w_y \sigma(y_i)^2 + w_v \tau^2 \sigma(v_i)^2 + w_a \tau^4 \sigma(a_i)^2.
         $$
-        This function solves the reformulated problem using `scipy.optimize.minimize`
+        `normalization_coefficients` solves this reformulated problem using `scipy.optimize.minimize`
         with the BFGS method. Additionally:
 
         - Optimization is performed over $\log(\tau)$ to enforce $\tau > 0$.
