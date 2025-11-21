@@ -49,3 +49,24 @@ class TestPODLatentSpace:
         latent = pod.to_latent(snapshots)
         recons = pod.from_latent(latent)
         assert jnp.allclose(snapshots, recons, rtol=1e-4, atol=1e-4)
+
+    @pytest.mark.parametrize("fit_shape", [(10, 50, 100), (10, 50, 1000)])
+    def test_normalization(self, fit_shape, getkey):
+        snapshots = jr.uniform(getkey(), fit_shape)
+        x = min(fit_shape[0] * fit_shape[1], fit_shape[2])
+        pod = PODLatentSpace(
+            snapshots, num_modes=x, shift=None, scaling="normalize"
+        )
+
+        latent = pod.to_latent(snapshots)
+        assert jnp.allclose(jnp.std(latent), 1.0)
+
+    @pytest.mark.parametrize("fit_shape", [(10, 50, 100), (10, 50, 1000)])
+    def test_shift(self, fit_shape, getkey):
+        snapshots = jr.uniform(getkey(), fit_shape)
+        pod = PODLatentSpace(
+            snapshots, num_modes=10, shift=snapshots[0, 0], scaling="normalize"
+        )
+
+        latent = pod.to_latent(snapshots[0, 0])
+        assert jnp.allclose(latent, 0.0)
