@@ -8,6 +8,7 @@ from ._normalize import (
     normalization_coefficients as normalization_coefficients,
 )
 from ._odesolver import ODESolver as ODESolver
+from ._pod import PODLatentSpace, get_svd
 from ._singals import aprbs as aprbs
 from ._singals import (
     bandlimited_noise as bandlimited_noise,

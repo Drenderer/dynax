@@ -75,9 +75,10 @@ extra_javascript:
 nav:
   - Dynax: index.md
   - API:
-    - api/odesolver.md
-    - api/isphs.md
-    - api/lyapunov_function.md
-    - api/signals.md
-    - api/normalization.md
     - api/datahandling.md
+    - api/isphs.md
+    - api/latentspace.md
+    - api/lyapunov_function.md
+    - api/normalization.md
+    - api/odesolver.md
+    - api/signals.md
