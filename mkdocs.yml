@@ -77,7 +77,6 @@ nav:
   - API:
     - api/datahandling.md
     - api/isphs.md
-    - api/latentspace.md
     - api/lyapunov_function.md
     - api/normalization.md
     - api/odesolver.md
