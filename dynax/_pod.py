@@ -138,6 +138,15 @@ class PODLatentSpace:
         self,
         snapshot: Shaped[NDArray | Array, "... n_space"],
     ) -> Shaped[Array, "... n_modes"]:
+        """Project snapshot into the latent space.
+
+        Args:
+            snapshot: Data with shape `(..., n_space)`.
+
+        Returns:
+            Array of latent variables with shape `(..., n_modes)`.
+
+        """
         _snapshot = snapshot - self.shift
         latent_variables = (
             _snapshot @ self.modes[: self.num_modes].T / self.scale
@@ -148,6 +157,15 @@ class PODLatentSpace:
         self,
         latent_variables: Shaped[NDArray | Array, "... n_modes"],
     ) -> Shaped[Array, "... n_space"]:
+        """Project latent variables into the full order space.
+
+        Args:
+            latent_variables: Data with shape `(..., n_modes)`.
+
+        Returns:
+            Array with shape `(..., n_space)`.
+
+        """
         snapshot = (
             latent_variables @ self.modes[: self.num_modes] * self.scale
             + self.shift

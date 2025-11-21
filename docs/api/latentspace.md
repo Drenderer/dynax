@@ -6,4 +6,5 @@ title: Latent space projections
     options:
         members:
             - __init__
-            - __call__
+            - to_latent
+            - from_latent
