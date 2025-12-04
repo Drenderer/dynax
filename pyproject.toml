@@ -9,7 +9,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "diffrax>=0.7.0",
+    "diffrax>=0.6.0",
     "klax",
 ]
 classifiers = [
