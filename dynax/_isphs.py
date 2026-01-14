@@ -55,7 +55,7 @@ class ISPHS(eqx.Module):
                 that the system does not have external inputs $u$. Defaults to None.
 
         Tipp:
-            Consider using [klax](https://drenderer.github.io/klax/api/training/#klax.fit)
+            Consider using [klax](https://drenderer.github.io/klax/)
             for convenient implementations of [matrix valued functions](https://drenderer.github.io/klax/api/nn/matrices/).
 
         """
