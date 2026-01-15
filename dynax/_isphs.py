@@ -10,15 +10,15 @@ from jaxtyping import Array, Float, Scalar
 class ISPHS(eqx.Module):
     R"""Input-State port-Hamiltonian Systems (ISPHS).
 
-    Implementation of a output-less port-Hamiltonian system:
-    $$ \dot{x} = (J(x)-R(x))\frac{\partial \mathcal{H}}{\partial x} + B(x)u $$
+    Implementation of the state equation of a input-state-output port-Hamiltonian system:
+    $$ \dot{\mathbf{x}} = (\mathbf{J}(\mathbf{x})-\mathbf{R}(\mathbf{x}))\frac{\partial\mathcal{H}(\mathbf{x})}{\partial \mathbf{x}} + \mathbf{B}(\mathbf{x})\mathbf{u} $$
     where:
-        $x(t)$ is the state vector,
-        $u(t)$ is the input vector,
-        $\mathcal{H}(x)$ is the Hamiltonian function given by `hamiltonian`,
-        $J$ is the structure matrix given by `structure_matrix`,
-        $R$ is the dissipation matrix given by `dissipation_matrix`,
-        and $B$ is the input matrix given by `input_matrix`.
+        $\mathbf{x}(t)$ is the state vector,
+        $\mathbf{u}(t)$ is the input vector,
+        $\mathcal{H}(\mathbf{x})$ is the Hamiltonian function given by `hamiltonian`,
+        $\mathbf{J}$ is the structure matrix given by `structure_matrix`,
+        $\mathbf{R}$ is the dissipation matrix given by `dissipation_matrix`,
+        and $\mathbf{B}$ is the input matrix given by `input_matrix`.
     """
 
     hamiltonian: Callable[[Array], Scalar]

@@ -60,6 +60,8 @@ plugins:
         - jax.nn.initializers.Initializer
         - numpy.dtype
         - jax._src.typing.SupportsDType
+        - klax._wrappers.Constraint
+        - klax._wrappers.Unwrappable
 
 markdown_extensions:
   - admonition
@@ -76,9 +78,9 @@ nav:
   - Dynax: index.md
   - API:
     - api/datahandling.md
-    - api/isphs.md
+    - api/derivative_models.md
+    - api/integration_models.md
     - api/latentspace.md
     - api/lyapunov_function.md
     - api/normalization.md
-    - api/odesolver.md
     - api/signals.md
