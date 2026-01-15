@@ -47,7 +47,8 @@ class NeuralODE(eqx.Module):
 
         Args:
             state_size: Number of state variables.
-            input_size: Number of input variables. Can be zero
+            input_size: Number of input variables. Can be zero to indicate
+                no input dependence.
             time_dependent: If true then the time is fed as an additional
                 array entry to the MLP. Defaults to False.
             state_dependent: If true then the state is fed as an additional
