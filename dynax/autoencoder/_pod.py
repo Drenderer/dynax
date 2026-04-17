@@ -1,7 +1,5 @@
 from typing import Literal, cast
 
-import equinox as eqx
-import numpy as np
 from jax import numpy as jnp
 from jaxtyping import Array, Shaped
 from numpy.typing import NDArray
