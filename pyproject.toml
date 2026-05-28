@@ -1,7 +1,7 @@
 [project]
 name = "dynax"
 version = "0.1.0"
-description = "Add your description here"
+description = "Collection of tools for data-driven dynamic system identification."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
@@ -25,12 +25,6 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-docs = [
-    "hippogriffe>=0.2.2",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.6.14",
-    "mkdocstrings-python>=1.16.12",
-]
 plotting = [
     "matplotlib>=3.10.3",
     "notebook>=7.4.3",
@@ -44,6 +38,12 @@ build-backend = "hatchling.build"
 dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
+]
+docs = [
+    "hippogriffe>=0.2.2",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.14",
+    "mkdocstrings-python>=1.16.12",
 ]
 
 [tool.pytest.ini_options]
