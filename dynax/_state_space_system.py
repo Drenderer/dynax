@@ -1,67 +1,35 @@
 from collections.abc import Callable
-from typing import Protocol
 
 import diffrax
 import equinox as eqx
 import jax
-import jax.numpy as jnp
 from jaxtyping import Array, Float, PyTree, Scalar
 
+type StateEquation = Callable[
+    [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
+    Float[Array, "n"],
+]
 
-class StateEquation(Protocol):
-    def __call__(
-        self,
-        t: Scalar,
-        x: Float[Array, "n"],
-        u: Float[Array, "m"] | None,
-        params: PyTree,
-    ) -> Float[Array, "n"]:
-        """Evaluate the state dynamics function.
-
-        Args:
-            t: Scalar time value (`Scalar`).
-            x: State vector (`Float[Array, "n"]`).
-            u: Input vector (`Float[Array, "m"]`) or `None` for unforced systems.
-            params: Additional runtime arguments (`PyTree`).
-
-        Returns:
-            Time derivative of the state (`Float[Array, "n"]`).
-
-        """
-        ...
-
-
-class OutputEquation(Protocol):
-    def __call__(
-        self,
-        t: Scalar,
-        x: Float[Array, "n"],
-        u: Float[Array, "m"] | None,
-        params: PyTree,
-    ) -> Float[Array, "p"]:
-        """Evaluate the output mapping.
-
-        Args:
-            t: Scalar time value (`Scalar`).
-            x: State vector (`Float[Array, "n"]`).
-            u: Input vector (`Float[Array, "m"]`) or `None` for unforced systems.
-            params: Additional runtime arguments (`PyTree`).
-
-        Returns:
-            Output vector (`Float[Array, "p"]`).
-
-        """
-        ...
+type OutputEquation = Callable[
+    [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
+    Float[Array, "p"],
+]
 
 
 class FullStateOutput(eqx.Module):
-    """Default output map that returns the full state as output.
+    """Output map that returns the full state as output.
 
     This corresponds to $y(t)=x(t)$, i.e., output dimension equals state
     dimension ($p=n$).
     """
 
-    def __call__(self, t, x, u, args):
+    def __call__(
+        self,
+        t: Scalar,
+        x: Float[Array, "n"],
+        u: Float[Array, "m"],
+        args: PyTree,
+    ) -> Float[Array, "n"]:
         """Return the state unchanged.
 
         Args:
@@ -71,7 +39,7 @@ class FullStateOutput(eqx.Module):
             args: Additional arguments (`PyTree`). Unused.
 
         Returns:
-            Output vector equal to `x` (`Float[Array, "n"]`).
+            State `x` (`Float[Array, "n"]`).
 
         """
         return x
@@ -126,28 +94,16 @@ class StateSpaceSystem(eqx.Module):
 
     """
 
-    state_equation: Callable[
-        [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
-        Float[Array, "n"],
-    ]
-    output_equation: Callable[
-        [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
-        Float[Array, "p"],
-    ]
+    state_equation: StateEquation
+    output_equation: OutputEquation
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
     max_steps: int | None = eqx.field(static=True)
 
     def __init__(
         self,
-        state_equation: Callable[
-            [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
-            Float[Array, "n"],
-        ],
-        output_equation: Callable[
-            [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
-            Float[Array, "p"],
-        ] = FullStateOutput(),
+        state_equation: StateEquation,
+        output_equation: OutputEquation = FullStateOutput(),
         solver: diffrax.AbstractSolver = diffrax.Tsit5(),
         stepsize_controller: diffrax.AbstractStepSizeController = diffrax.PIDController(
             rtol=1e-6, atol=1e-6
