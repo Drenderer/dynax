@@ -12,7 +12,12 @@ class PointArgFunc(Protocol):
     """Function that maps arrays of features and points to features and points."""
 
     def __call__(
-        self, features: Array, points: Array, /
+        self,
+        features: Array,
+        points: Array,
+        /,
+        *,
+        key: PRNGKeyArray | None = None,
     ) -> tuple[Array, Array]: ...
 
 
@@ -25,6 +30,7 @@ class PointArgWrapper(eqx.Module):
         self,
         features: Array,
         points: Array,
+        /,
         *,
         key: PRNGKeyArray | None = None,
     ) -> tuple[Array, Array]:
@@ -52,6 +58,7 @@ class PointArgSequential(eqx.Module):
         self,
         features: Array,
         points: Array,
+        /,
         *,
         key: PRNGKeyArray | None = None,
     ) -> tuple[Array, Array]:
@@ -103,16 +110,18 @@ class PointArgAE(eqx.Module):
         self,
         features: Array,
         points: Array,
+        /,
         *,
         key: PRNGKeyArray | None = None,
     ) -> tuple[Array, Array]:
-        return self.encoder(features, points)
+        return self.encoder(features, points, key=key)
 
     def decode(
         self,
         features: Array,
         points: Array,
+        /,
         *,
         key: PRNGKeyArray | None = None,
     ) -> tuple[Array, Array]:
-        return self.decoder(features, points)
+        return self.decoder(features, points, key=key)

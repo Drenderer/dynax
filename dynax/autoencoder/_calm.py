@@ -68,7 +68,7 @@ class CALMLayer(eqx.Module):
             [PRNGKeyArray], Float[Array, "num_query_points num_spatial_dims"]
         ],
         receptive_size: int,
-        temperature: float = 1,
+        temperature: float = 1.0,
         query_points_learnable: bool = True,
         modulate_kernel: bool = True,
         initial_input_points: Float[Array, "num_input_points num_spatial_dims"]
