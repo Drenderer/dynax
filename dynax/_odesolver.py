@@ -1,218 +1,331 @@
-# TODO: Add alternative interpolation methods
-# TODO: Add option to pass u as a function.
-# TODO: Check the use of u=None for consistency and how to handle optional inputs better.
-
-from collections.abc import Callable
-from typing import cast
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import diffrax
 import equinox as eqx
 import jax
-import jax.numpy as jnp
-from diffrax import CubicInterpolation, backward_hermite_coefficients
-from jaxtyping import Array, PyTree
+import numpy as np
+from jax import numpy as jnp
+from jaxtyping import Array, ArrayLike, Float, PyTree, Real, Scalar
+from klax import NonTrainable
+
+if TYPE_CHECKING:
+    RealScalarLike = int | float | Array | np.ndarray
+else:
+    RealScalarLike = Real[ArrayLike, ""]
+
+type ODEFunc = Callable[[RealScalarLike, PyTree, PyTree, PyTree], PyTree]
 
 
 class ODESolver(eqx.Module):
-    R"""Integrate a function or submodule.
+    R"""ODE solver module.
 
-    This class integrates $\dot{y} = \text{func}(t, y, u, [\text{funcargs}])$
-    defined by a function or submodule ``func``. The integration is performed
-    using [diffrax](https://docs.kidger.site/diffrax/).
-    This makes the ``ODESolver`` differentiable.
+    Solver for continuous-time ODE systems of the form
 
-    Example:
-        ```python
-        >>> import jax.numpy as jnp
-        >>> from dynax import ODESolver
-        >>> def func(t, y, u):
-        ...     return -y + u
-        >>> model = ODESolver(func)
-        >>> ts = jnp.linspace(0, 1, 100)
-        >>> y0 = jnp.array([0.5, 1.0, 2.0])
-        >>> us = jnp.sin(ts)  # Example input
-        >>> solution = model(ts, y0, us)
-        >>> print(solution.shape)
-        (100, 3)
-        ```
+    $$
+        \dot{\mathbf{x}} = \mathbf{f}\bigl(t, \mathbf{x}, \mathbf{u}; \mu\bigr)
+    $$
+
+    with time $t \in \mathbb{R}$, state $\mathbf{x}(t) \in \mathbb{R}^n$,
+    input $\mathbf{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+
+    The system is integrated using `diffrax.diffeqsolve`.
+    To evaluate the input $\mathbf{u}(t)$ at arbitrary points in time Hermite
+    cubic splines with backward differences are used to interpolate the discrete
+    input signal $\mathbf{u}_i$ given at times $t_i$.
+
+    Notation:
+        n: State dimension.
+        m: Input dimension.
+        l: Number of time steps in the simulation horizon.
 
     """
 
-    func: Callable[..., Array]
+    func: ODEFunc
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
     max_steps: int | None = eqx.field(static=True)
-    is_augmented: bool = eqx.field(static=True)
-    augmented_ic: Array
-    augmented_ic_learnable: bool = eqx.field(static=True)
+    dt0: Scalar | None = eqx.field(static=True)
+    adjoint: diffrax.AbstractAdjoint
 
     def __init__(
         self,
-        func: Callable[..., Array],
-        augmentation: int | Array = 0,
-        augmented_ic_learnable: bool = False,
+        func: ODEFunc,
+        *,
         solver: diffrax.AbstractSolver = diffrax.Tsit5(),
         stepsize_controller: diffrax.AbstractStepSizeController = diffrax.PIDController(
             rtol=1e-6, atol=1e-6
         ),
         max_steps: int | None = 4096,
+        dt0: Scalar | None = None,
+        adjoint: diffrax.AbstractAdjoint = diffrax.RecursiveCheckpointAdjoint(),
     ):
-        """Initialize the ODESolver.
+        """Initialize the ODE solver.
 
         Args:
-            func: Function or submodel to integrate. The function arguments are
-                ``(t, y, u, [funcargs])`` with a scalar time ``t``, a ``N``-dimensional
-                state vector ``y``, a ``m``-dimensional input vector ``u`` and an optional
-                patree ``funcargs``. The function must return an ``N``-dimensional vector
-                representing the state derivative.
-            augmentation: If ``augmentation`` is an array, it describes the vector
-                of augmented states that are added to the inital state ``y0`` before
-                passing it to ``func``. If augmentation is an integer, it describes how many
-                extra dimensions are to be added to the state and initializes the augmented
-                initial condition to all zeros. Defaults to 0.
-            augmented_ic_learnable: If ``True`` the initial condition of the augmented
-                state is updated during training. Defaults to False.
-            solver: Specifies the diffax solver to use for numerical integration.
-            stepsize_controller: The diffrax stepsize controller to use for integration.
-            max_steps: The maximum number of steps to take before quitting the computation
-                unconditionally. A value of ``None`` means no limit is imposed.
-
-        Note:
-            The arguments `solver`, `stepsize_controller`, and `max_steps` are passed directly
-            to the [`diffrax.diffeqsolve`](https://docs.kidger.site/diffrax/api/diffeqsolve/) function. For more information view the
-            [diffrax documentation](https://docs.kidger.site/diffrax/).
-
-        Raises:
-            ValueError: If provided augmentation is neither an array or integer.
+            func: Dynamics function (right hand side of the ODE)
+                `f(t, x, u, args) -> dx/dt`.
+            solver: Diffrax ODE solver used by `diffrax.diffeqsolve`.
+            stepsize_controller: Diffrax step-size controller.
+            max_steps: Maximum number of integration steps accepted by Diffrax.
+                If `None`, Diffrax uses its default behavior.
+            dt0: The step size to use for the first step. If using fixed step
+                sizes then this will also be the step size for all other steps.
+                If set as None then the initial step size will be determined
+                automatically.
+            adjoint: How to differentiate `diffrax.diffeqsolve`. Defaults to
+                discretize-then-optimize, which is usually the best option for
+                most problems. See the diffrax page on
+                [Adjoints](https://docs.kidger.site/diffrax/api/adjoints/) for
+                more information.
 
         """
         self.func = func
-        self.augmented_ic_learnable = augmented_ic_learnable
-        if isinstance(augmentation, int):
-            self.augmented_ic = jnp.zeros(augmentation)
-        elif eqx.is_array(augmentation):
-            assert augmentation.ndim == 1, (
-                "Initial condition for the augmented state must be 1-dimensional."
-            )
-            self.augmented_ic = augmentation
-        else:
-            raise ValueError(
-                f"'augmentation' must be an int or an array but got {augmentation}"
-            )
-
-        self.is_augmented = self.augmented_ic.size != 0
-
         self.solver = solver
         self.stepsize_controller = stepsize_controller
         self.max_steps = max_steps
+        self.dt0 = dt0
+        self.adjoint = adjoint
 
     def __call__(
         self,
-        ts: Array,
-        y0: Array,
-        us: Array | None = None,
-        funcargs: PyTree = None,
-    ) -> Array:
-        """Solve ODE.
+        ts: Sequence[RealScalarLike] | Array,
+        x0: PyTree,
+        us: PyTree | None = None,
+        args: PyTree = None,
+    ) -> PyTree:
+        """Solve the ODE.
 
         Args:
-            ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
-            y0: Initial condition of the system state at time ``ts[0]``.
-            us: Two dimensional array of stacked input vectors at each timestep.
-                Shape ``(k, m)``. Defaults to None.
-            funcargs: Optional additional arguments to pass to the function ``func``.
+            ts: Monotonic simulation time grid.
+            x0: Initial state at `ts[0]`.
+            us: Input trajectory aligned with `ts`. If provided, cubic
+                interpolation is used to evaluate $u(t)$ during
+                integration. Use `None` for unforced systems.
+            args: Additional arguments passed to `func`.
 
         Returns:
-            Solution of the ODE excluding the augmented states. Shape ``(k, n)``.
+            State trajectory sampled at `ts`.
 
         """
-        ys = self.get_augmented_trajectory(ts, y0, us, funcargs)
-        if self.is_augmented:
-            # Remove the augmentation dimension and return
-            return ys[:, : -self.augmented_ic.size]
-        else:
-            return ys
+        return self.get_diffrax_solution(ts, x0, us, args).ys
 
-    def get_solution(
+    def get_diffrax_solution(
         self,
-        ts: Array,
-        y0: Array,
-        us: Array | None = None,
-        funcargs: PyTree = None,
+        ts: Sequence[RealScalarLike] | Array,
+        x0: PyTree,
+        us: PyTree | None = None,
+        args: PyTree = None,
     ) -> diffrax.Solution:
-        """Return the ```diffrax.Solution``` object.
+        """Integrate the dynamics and return the raw Diffrax solution object.
 
         Args:
-            ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
-            y0: Initial condition of the system state at time ``ts[0]``.
-            us: Two dimensional array of stacked input vectors at each timestep.
-                Shape ``(k, m)``. Defaults to None.
-            funcargs: Optional additional arguments to pass to the function ``func``.
+            ts: Monotonic simulation time grid.
+            x0: Initial state at `ts[0]`.
+            us: Input trajectory aligned with `ts`. If provided, cubic
+                interpolation is used to evaluate $u(t)$ during
+                integration. Use `None` for unforced systems.
+            args: Additional arguments passed to `func`.
 
         Returns:
-            diffrax solution object.
+            Diffrax integration result (`diffrax.Solution`) with states stored
+            at sampling times `ts`.
 
         """
-        # Add the augmentation dimensions to the inital state
-        y0_aug = self.augmented_ic
-        if not self.augmented_ic_learnable:
-            y0_aug = jax.lax.stop_gradient(y0_aug)
-        y0 = jnp.concat([y0, y0_aug])
-
-        # If inputs are supplied, then interpolate them
         if us is not None:
-            coeffs = backward_hermite_coefficients(ts, us)
-            u_interp = CubicInterpolation(ts, coeffs)
+            coeffs = diffrax.backward_hermite_coefficients(ts, us)
+            u_interp = diffrax.CubicInterpolation(ts, coeffs)
         else:
             u_interp = None
 
-        # Define the funtion to be intergrated
         def _func(t, y, args):
-            u_interp, funcargs = args
+            u_interp, _args = args
             if u_interp is None:
                 u = None
             else:
                 u = u_interp.evaluate(t)
 
-            if funcargs is None:
-                return self.func(t, y, u)
-            return self.func(t, y, u, funcargs)
+            return self.func(t, y, u, _args)
 
-        # Solve the ODE using diffrax
         solution = diffrax.diffeqsolve(
             diffrax.ODETerm(_func),
             self.solver,
             t0=ts[0],
             t1=ts[-1],
-            dt0=ts[1] - ts[0],
-            y0=y0,
-            args=(u_interp, funcargs),
+            dt0=self.dt0,
+            y0=x0,
+            args=(u_interp, args),
             saveat=diffrax.SaveAt(ts=ts),
             stepsize_controller=self.stepsize_controller,
             max_steps=self.max_steps,
+            adjoint=self.adjoint,
         )
 
         return solution
 
-    def get_augmented_trajectory(
+
+class AugmentedODE(eqx.Module):
+    R"""Augmented ODE module.
+
+    Extends a given initial condition with additional augmented states, then
+    passes it to an [`ODESolver`][dynax.ODESolver]. Finally, the augmentation
+    is removed from the solution before returning. 
+
+    $$
+    \begin{align}
+        \mathbf{z}_0 &= \begin{bmatrix} \mathbf{x}_0 \\ \tilde{\mathbf{x}}_0 \end{bmatrix}, \\
+        \dot{\mathbf{z}} &= \mathbf{f}\bigl(t, \mathbf{z}, \mathbf{u}; \mu\bigr), \\
+        \mathbf{x}(t) &= \mathbf{z}(t)[:n]
+    \end{align}
+    $$
+
+    with time $t \in \mathbb{R}$, state $\mathbf{x}(t) \in \mathbb{R}^n$, 
+    augmented state $\mathbf{z}(t) \in \mathbb{R}^{n+n_\text{aug}}$,
+    input $\mathbf{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+
+    """
+
+    ode_solver: ODESolver
+    augmented_x0: Array | NonTrainable[Array]
+    augmented_x0_learnable: bool = eqx.field(static=True)
+
+    def __init__(
         self,
-        ts: Array,
-        y0: Array,
-        us: Array | None = None,
-        funcargs: PyTree = None,
-    ) -> Array:
-        """Return the ODE solution including the augmented states.
+        ode_solver: ODESolver,
+        augmentation: int | Array,
+        *,
+        augmented_x0_learnable: bool = False,
+    ):
+        """Initialize the ODE solver.
 
         Args:
-            ts: Array of timesteps at which the solution is evaluated, with shape ``(k,)``.
-            y0: Initial condition of the system state at time ``ts[0]``.
-            us: Two dimensional array of stacked input vectors at each timestep.
-                Shape ``(k, m)``. Defaults to None.
-            funcargs: Optional additional arguments to pass to the function ``func``.
-
-        Returns:
-            Solution of the ODE including the augmented states. Shape ``(k, N)``.
+            ode_solver: [`ODESolver`][dynax.ODESolver] for the augmented ODE
+                `f(t, z, u, args) -> dz/dt`.
+            augmentation: If `augmentation` is an array, it describes the vector
+                of augmented states that are added to the initial state `x0`
+                before passing it to the `state_equation`. If augmentation is an
+                integer, it describes how many extra dimensions are to be added
+                to the state and the augmented initial condition is initialized
+                to all zeros.
+            augmented_x0_learnable: If `True`, the initial conditions of the
+                augmented states are updated during training.
+                Defaults to False.
 
         """
-        ys = self.get_solution(ts, y0, us, funcargs).ys
-        return cast(Array, ys)
+        self.ode_solver = ode_solver
+        self.augmented_x0_learnable = augmented_x0_learnable
+        if isinstance(augmentation, int):
+            augmented_x0 = jnp.zeros(augmentation)
+        elif eqx.is_array(augmentation):
+            assert augmentation.ndim == 1, (
+                "Initial condition for the augmented state must be 1-dimensional."
+            )
+            augmented_x0 = augmentation
+        else:
+            raise ValueError(
+                f"'augmentation' must be an int or an array but got {augmentation}"
+            )
+        self.augmented_x0 = (
+            augmented_x0
+            if augmented_x0_learnable
+            else NonTrainable(augmented_x0)
+        )
+
+    def __call__(
+        self,
+        ts: Sequence[RealScalarLike] | Array,
+        x0: PyTree,
+        us: PyTree | None = None,
+        args: PyTree = None,
+    ) -> PyTree:
+        """Solve the augmented ODE.
+
+        Args:
+            ts: Monotonic simulation time grid.
+            x0: Initial state at `ts[0]`.
+            us: Input trajectory aligned with `ts`, or
+                `None` for unforced systems.
+            args: Additional arguments passed to `ODESolver.func`
+
+        Returns:
+            State trajectory sampled at `ts`.
+
+        """
+        z0 = jnp.concat([x0, self.augmented_x0])
+        zs = self.ode_solver(ts, z0, us, args)
+        xs = zs[..., : x0.size]
+        return xs
+
+
+class StateSpaceSystem(eqx.Module):
+    R"""Module for general state-space systems.
+
+    Module for continuous-time state-space systems of the form
+
+    $$
+    \begin{align}
+    \dot{\mathbf{x}} &= \mathbf{f}\bigl(t, \mathbf{x}, \mathbf{u}; \mu\bigr), \\
+    \mathbf{y} &= \mathbf{g}\bigl(t, \mathbf{x}, \mathbf{u}; \mu\bigr),
+    \end{align}
+    $$
+
+    with time $t \in \mathbb{R}$, state $\mathbf{x}(t) \in \mathbb{R}^n$, 
+    input $\mathbf{u}(t) \in \mathbb{R}^m$, output $\mathbf{y}(t) \in \mathbb{R}^p$ 
+    and optional static parameters $\mu$. 
+
+    The state equation is integrated using the [`ODESolver`][dynax.ODESolver] 
+    module.
+    """
+
+    ode_solver: ODESolver
+    output_equation: Callable[
+        [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
+        Float[Array, "p"],
+    ]
+
+    def __init__(
+        self,
+        ode_solver: ODESolver,
+        output_equation: Callable[
+            [Scalar, Float[Array, "n"], Float[Array, "m"], PyTree],
+            Float[Array, "p"],
+        ],
+    ):
+        """Initialize a state-space simulation model.
+
+        Args:
+            ode_solver: [`ODESolver`][dynax.ODESolver] for the state equation.
+            output_equation: Output function.
+
+        """
+        self.ode_solver = ode_solver
+        self.output_equation = output_equation
+
+    def __call__(
+        self,
+        ts: Sequence[RealScalarLike] | Array,
+        x0: PyTree,
+        us: PyTree | None = None,
+        args: PyTree = None,
+    ) -> PyTree:
+        """Simulate the system and return output trajectories.
+
+        Args:
+            ts: Monotonic simulation time grid.
+            x0: Initial state at `ts[0]`.
+            us: Input trajectory aligned with `ts`, or
+                `None` for unforced systems.
+            args: Additional arguments passed to `ODESolver.func`
+
+        Returns:
+            Output trajectory sampled at `ts`.
+
+        """
+        xs = self.ode_solver(ts, x0, us, args)
+        if us is None:
+            return jax.vmap(self.output_equation, in_axes=(0, 0, None, None))(
+                ts, xs, None, args
+            )
+        return jax.vmap(self.output_equation, in_axes=(0, 0, 0, None))(
+            ts, xs, us, args
+        )

@@ -52,8 +52,10 @@ plugins:
       show_bases: true
       show_source_links: all
       extra_public_objects:
-        - diffrax.AbstractStepSizeController
+        - diffrax.AbstractAdjoint
+        - diffrax.RecursiveCheckpointAdjoint
         - diffrax.AbstractSolver
+        - diffrax.AbstractStepSizeController
         - diffrax.Tsit5
         - diffrax.PIDController
         - diffrax.Solution

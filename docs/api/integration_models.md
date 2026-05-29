@@ -10,5 +10,20 @@ while supporting automatic differentiation through time.
         members:
             - __init__
             - __call__
-            - get_augmented_trajectory
-            - get_solution
+            - get_diffrax_solution
+
+---
+For convenience, some light wrappers around the [`ODESolver`][dynax.ODESolver] are
+provided:
+
+::: dynax.AugmentedODE
+    options:
+        members:
+            - __init__
+            - __call__
+
+::: dynax.StateSpaceSystem
+    options:
+        members:
+            - __init__
+            - __call__
