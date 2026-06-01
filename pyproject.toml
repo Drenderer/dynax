@@ -10,6 +10,8 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "diffrax>=0.6.0",
+    "equinox>=0.13.1",
+    "jax>=0.6.1",
     "klax",
 ]
 classifiers = [
