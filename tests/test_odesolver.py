@@ -16,13 +16,13 @@ def test_odesolver_with_args():
     c = 2.0
 
     true_sol = jnp.multiply.outer(jnp.exp(-c * ts), y0)
-    pred_sol = model(ts, y0, funcargs=c)
+    pred_sol = model(ts, y0, args=c)
 
     assert jnp.allclose(true_sol, pred_sol)
 
 
 def test_odesolver_without_args():
-    def func(t, x, u):
+    def func(t, x, u, args):
         return -x
 
     model = ODESolver(func)
