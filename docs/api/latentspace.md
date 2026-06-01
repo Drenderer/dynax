@@ -33,12 +33,14 @@ title: Latent space projections
 ::: dynax.PointArgAE
     options:
         members:
+            - __init__
             - encode
             - decode
 
 ::: dynax.PointArgWrapper
     options:
         members:
+            - __init__
             - __call__
 
 ::: dynax.PointArgFunc

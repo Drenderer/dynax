@@ -8,6 +8,7 @@ from ._normalize import (
 )
 from ._odesolver import ODESolver as ODESolver
 from ._phs import ISOPHS as ISOPHS
+from ._phs import MatrixWrapper as MatrixWrapper
 from ._pytree_utils import concat_pytree as concat_pytree
 from ._pytree_utils import slice_pytree as slice_pytree
 from ._singals import aprbs as aprbs

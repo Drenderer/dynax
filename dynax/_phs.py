@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import equinox as eqx
 import jax
+from jax import numpy as jnp
 from jaxtyping import Array, Float, PyTree, Scalar
 
 
@@ -95,8 +96,12 @@ class ISOPHS(eqx.Module):
         self.input_matrix = input_matrix
 
     def __call__(
-        self, t: Scalar, x: Array, u: Array | None = None, args: PyTree = None
-    ) -> Array:
+        self,
+        t: Scalar,
+        x: Float[Array, "n"],
+        u: Float[Array, "m"] | None = None,
+        args: PyTree = None,
+    ) -> Float[Array, "n"]:
         R"""Return the time derivative of the state vector $x$.
 
         Args:
@@ -120,8 +125,12 @@ class ISOPHS(eqx.Module):
         return self.state_equation(t, x, u, args)
 
     def state_equation(
-        self, t: Scalar, x: Array, u: Array | None = None, args: PyTree = None
-    ) -> Array:
+        self,
+        t: Scalar,
+        x: Float[Array, "n"],
+        u: Float[Array, "m"] | None = None,
+        args: PyTree = None,
+    ) -> Float[Array, "n"]:
         R"""Compute the time derivative of the state vector $\dot{\boldsymbol{x}}$.
 
         Args:
@@ -166,8 +175,12 @@ class ISOPHS(eqx.Module):
         return x_t
 
     def output_equation(
-        self, t: Scalar, x: Array, u: Array | None = None, args: PyTree = None
-    ) -> Array:
+        self,
+        t: Scalar,
+        x: Float[Array, "n"],
+        u: Float[Array, "m"] | None = None,
+        args: PyTree = None,
+    ) -> Float[Array, "p"]:
         R"""Compute the output $\boldsymbol{y}$.
 
         Args:
@@ -196,3 +209,41 @@ class ISOPHS(eqx.Module):
 
         input_matrix = self.input_matrix(x, args)
         return input_matrix.mT @ jax.grad(self.hamiltonian)(x, args)
+
+
+class MatrixWrapper(eqx.Module):
+    """Compatibility layer for using `klax` matrices with the call interface required by [`ISOPHS`][dynax.ISOPHS].
+
+    Matrix-valued functions implemented in `klax` currently only support one
+    input argument `x -> A`. However, the matrix-valued functions required for
+    the [input-state-output port-Hamiltonian system][dynax.ISOPHS] demand the
+    call signature `(x, args) -> A`. This class can wrap the `klax` matrix-valued
+    functions to comply with the latter call signature.
+    It supports 4 modes depending on `state_dependent` and `parameter_dependent`:
+
+    - If both `state_dependent=parameter_dependent=True`, then the `x` and `args`
+    are concatenated and the result is passed to the wrapped matrix-valued
+    function. In this case both `x` and `args` are required to be 1-d arrays.
+    - If only `state_dependent=True`, then `x` is passed to the matrix-valued
+    function.
+    - If only `parameter_dependent=True`, then `args` is passed to the
+    matrix-valued function.
+    - If both `state_dependent=parameter_dependent=False`, then `None` is passed
+    to the matrix-valued function.
+    """
+
+    matrix: Callable[[Array], Array]
+    state_dependent: bool = False
+    parameter_dependent: bool = False
+
+    def __call__(
+        self, x: Float[Array, "n"], args: PyTree | Float[Array, "a"]
+    ) -> Float[Array, "i j"]:
+        if self.state_dependent and self.parameter_dependent:
+            c = jnp.concat([x, args])
+            return self.matrix(c)
+        elif self.state_dependent:
+            return self.matrix(x)
+        elif self.parameter_dependent:
+            return self.matrix(args)
+        return self.matrix(None)

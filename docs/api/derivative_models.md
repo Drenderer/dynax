@@ -22,6 +22,13 @@ They are most often combined with a [numerical solver](./integration_models.md).
             - __init__
             - __call__
 
+::: dynax.MatrixWrapper
+    options:
+        members:
+            - __init__
+            - __call__
+
+
 ## Physics-agnostic systems
 
 ::: dynax.NeuralODE
