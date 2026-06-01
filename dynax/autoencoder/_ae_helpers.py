@@ -22,7 +22,7 @@ class PointArgFunc(Protocol):
 
 
 class PointArgWrapper(eqx.Module):
-    """Wraps a function from features to features to be compatible with the `PointArgFunc` protocol."""
+    """Wraps a function from features to features to be compatible with the [`PointArgFunc`][dynax.PointArgFunc] protocol."""
 
     func: Callable[[Any, PRNGKeyArray | None], Any]
 
@@ -38,7 +38,7 @@ class PointArgWrapper(eqx.Module):
 
 
 class PointArgSequential(eqx.Module):
-    """A sequence of equinox Modules adhering to the `PointArgFunc` protocol applied in sequence.
+    """A sequence of equinox Modules adhering to the [`PointArgFunc`][dynax.PointArgFunc] protocol applied in sequence.
 
     This is a modified version of equinox' [Sequential](https://docs.kidger.site/equinox/api/nn/sequential/).
     """
@@ -49,7 +49,7 @@ class PointArgSequential(eqx.Module):
         """Initialize the PointArgSequential.
 
         Args:
-            layers: Sequence of `PointArgFunc`s.
+            layers: Sequence of [`PointArgFunc`][dynax.PointArgFunc]s.
 
         """
         self.layers = tuple(layers)
@@ -101,7 +101,7 @@ class PointArgSequential(eqx.Module):
 
 
 class PointArgAE(eqx.Module):
-    """Autoencoder with PointArgFunc encoder and decoder."""
+    """Autoencoder with [`PointArgFunc`][dynax.PointArgFunc] encoder and decoder."""
 
     encoder: PointArgFunc
     decoder: PointArgFunc

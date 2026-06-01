@@ -20,16 +20,16 @@ class ODESolver(eqx.Module):
     Solver for continuous-time ODE systems of the form
 
     $$
-        \dot{\mathbf{x}} = \mathbf{f}\bigl(t, \mathbf{x}, \mathbf{u}; \mu\bigr)
+        \dot{\boldsymbol{x}} = \boldsymbol{f}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \mu\bigr)
     $$
 
-    with time $t \in \mathbb{R}$, state $\mathbf{x}(t) \in \mathbb{R}^n$,
-    input $\mathbf{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+    with time $t \in \mathbb{R}$, state $\boldsymbol{x}(t) \in \mathbb{R}^n$,
+    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
 
     The system is integrated using `diffrax.diffeqsolve`.
-    To evaluate the input $\mathbf{u}(t)$ at arbitrary points in time Hermite
+    To evaluate the input $\boldsymbol{u}(t)$ at arbitrary points in time Hermite
     cubic splines with backward differences are used to interpolate the discrete
-    input signal $\mathbf{u}_i$ given at times $t_i$.
+    input signal $\boldsymbol{u}_i$ given at times $t_i$.
 
     Notation:
         n: State dimension.

@@ -36,7 +36,7 @@ class RFF(eqx.Module):
 class CALMLayer(eqx.Module):
     """Continuous and Adaptive convolution Layer.
 
-    Implementation of "CALM-PDE" from: 10.48550/arXiv.2505.12944
+    Implementation of [CALM-PDE](https://arxiv.org/abs/2505.12944)
     by Jan Hagnberger, Daniel Musekamp and Mathias Niepert.
     """
 

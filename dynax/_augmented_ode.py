@@ -24,15 +24,15 @@ class AugmentedODE(eqx.Module):
 
     $$
     \begin{align}
-        \mathbf{z}_0 &= \begin{bmatrix} \mathbf{x}_0 \\ \tilde{\mathbf{x}}_0 \end{bmatrix}, \\
-        \dot{\mathbf{z}} &= \mathbf{f}\bigl(t, \mathbf{z}, \mathbf{u}; \mu\bigr), \\
-        \mathbf{x}(t) &= \mathbf{z}(t)[:n]
+        \boldsymbol{z}_0 &= \begin{bmatrix} \boldsymbol{x}_0 \\ \tilde{\boldsymbol{x}}_0 \end{bmatrix}, \\
+        \dot{\boldsymbol{z}} &= \boldsymbol{f}\bigl(t, \boldsymbol{z}, \boldsymbol{u}; \mu\bigr), \\
+        \boldsymbol{x}(t) &= \boldsymbol{z}(t)[:n]
     \end{align}
     $$
 
-    with time $t \in \mathbb{R}$, state $\mathbf{x}(t) \in \mathbb{R}^n$, 
-    augmented state $\mathbf{z}(t) \in \mathbb{R}^{n+n_\text{aug}}$,
-    input $\mathbf{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+    with time $t \in \mathbb{R}$, state $\boldsymbol{x}(t) \in \mathbb{R}^n$, 
+    augmented state $\boldsymbol{z}(t) \in \mathbb{R}^{n+n_\text{aug}}$,
+    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
 
     """
 
@@ -51,7 +51,7 @@ class AugmentedODE(eqx.Module):
         Args:
             ode_solver: [`ODESolver`][dynax.ODESolver] for the augmented ODE
                 `f(t, z, u, args) -> dz/dt`.
-            x0_auxiliary: The auxiliary initial state, that is concatenated to
+            x0_auxiliary: The initial auxiliary state, that is concatenated to
                 `x0` to compute the initial augmented state. Should be a prefix
                 of `x0`. To ensure that the auxiliary initial state is not
                 updated during training, wrap it in `klax.non_trainable`.
