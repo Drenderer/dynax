@@ -100,7 +100,7 @@ class Trajectory(eqx.Module):
         return self._us
 
     def __getitem__(self, index: Index) -> "Trajectory":
-        """Index all fields simultaniously.
+        """Index all fields simultaneously.
 
         Args:
             index: Any index into a `jax.numpy` array.
