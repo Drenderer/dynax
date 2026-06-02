@@ -83,6 +83,6 @@ nav:
     - api/derivative_models.md
     - api/integration_models.md
     - api/latentspace.md
-    - api/lyapunov_function.md
+    - api/potentials.md
     - api/normalization.md
     - api/signals.md
