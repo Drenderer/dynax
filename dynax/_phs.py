@@ -237,13 +237,12 @@ class MatrixWrapper(eqx.Module):
     parameter_dependent: bool = False
 
     def __call__(
-        self, x: Float[Array, "n"], args: PyTree[Array]
+        self, x: PyTree[Array] | None, args: PyTree[Array] | None
     ) -> Float[Array, "i j"]:
-        if self.state_dependent and self.parameter_dependent:
-            c, _ = jax.flatten_util.ravel_pytree([x, args])
-            return self.matrix(c)
+        tree = []
         if self.state_dependent:
-            return self.matrix(x)
+            tree.append(x)
         if self.parameter_dependent:
-            return self.matrix(args)
-        return self.matrix(None)
+            tree.append(args)
+        flat, _ = jax.flatten_util.ravel_pytree(args)
+        return self.matrix(flat)

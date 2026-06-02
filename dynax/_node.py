@@ -127,22 +127,22 @@ class NeuralODE(eqx.Module):
         args: PyTree[Array] | None = None,
     ) -> Shaped[Array, "n"]:
         """Evaluate the neural ODE's derivative."""
-        nn_input = []
+        tree = []
 
         if self.time_dependent:
-            nn_input.append(t)
+            tree.append(t)
 
         if self.state_dependent:
-            nn_input.append(x)
+            tree.append(x)
 
         if self.input_dependent:
-            nn_input.append(u)
+            tree.append(u)
 
         if self.parameter_dependent:
-            nn_input.append(args)
+            tree.append(args)
 
         try:
-            flat, _ = ravel_pytree(nn_input)
+            flat, _ = ravel_pytree(tree)
         except Exception as e:
             raise ValueError(
                 "Could not ravel all inputs into a single 1D array for the "
