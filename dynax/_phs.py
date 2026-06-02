@@ -244,5 +244,5 @@ class MatrixWrapper(eqx.Module):
             tree.append(x)
         if self.parameter_dependent:
             tree.append(args)
-        flat, _ = jax.flatten_util.ravel_pytree(args)
+        flat, _ = jax.flatten_util.ravel_pytree(tree)
         return self.matrix(flat)
