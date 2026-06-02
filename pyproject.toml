@@ -1,6 +1,6 @@
 [project]
 name = "dynax"
-version = "0.1.0"
+version = "0.2.0"
 description = "Collection of tools for data-driven dynamic system identification."
 readme = "README.md"
 license = { file = "LICENSE" }
