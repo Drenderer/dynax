@@ -2,10 +2,10 @@ from collections.abc import Callable, Sequence
 
 import equinox as eqx
 import klax
-from jax import numpy as jnp
+from jax.flatten_util import ravel_pytree
 from jax.nn import softplus
 from jax.nn.initializers import Initializer, he_normal, zeros
-from jaxtyping import Array, PRNGKeyArray, Scalar, Shaped
+from jaxtyping import Array, PRNGKeyArray, PyTree, Scalar, Shaped
 from klax._wrappers import Constraint, Unwrappable
 
 
@@ -13,21 +13,26 @@ class NeuralODE(eqx.Module):
     r"""Derivative model for a neural ODE.
 
     This implements the following equation:
-    $$ \dot{y} = f(t, y, u) $$
+    $$ \dot{y} = f(t, y, u; \text{args}) $$
     where $f$ is a multi-layer perceptron (MLP), depending on time $t\in\mathbb{R}$,
-    the state vector $y(t)\in\mathbb{R}^n$, and an input vector $u(t)\in\mathbb{R}^m$.
+    the state vector $y(t)\in\mathbb{R}^n$, an input vector $u(t)\in\mathbb{R}^m$
+    and a parameter vector $\text{args}\in\mathbb{R}^m$.
     """
 
     mlp: klax.nn.MLP
     state_size: int = eqx.field(static=True)
     input_size: int = eqx.field(static=True)
+    parameter_size: int = eqx.field(static=True)
     time_dependent: bool = eqx.field(static=True)
     state_dependent: bool = eqx.field(static=True)
+    input_dependent: bool = eqx.field(static=True)
+    parameter_dependent: bool = eqx.field(static=True)
 
     def __init__(
         self,
         state_size: int,
-        input_size: int,
+        input_size: int | None = None,
+        parameter_size: int | None = None,
         *,
         time_dependent: bool = False,
         state_dependent: bool = True,
@@ -46,9 +51,12 @@ class NeuralODE(eqx.Module):
         """Create a neural ode.
 
         Args:
-            state_size: Number of state variables.
-            input_size: Number of input variables. Can be zero to indicate
-                no input dependence.
+            state_size: Number of elements in the state vector `x`.
+            input_size: Number of elements in the input vector `u`.
+                Can be `None` to indicate no input dependence.
+            parameter_size: Number of elements in the raveled parameter PyTree
+                `args`; Essentially, the number of scalar parameters.
+                Can be `None` to indicate no parameter dependence.
             time_dependent: If true then the time is fed as an additional
                 array entry to the MLP. Defaults to False.
             state_dependent: If true then the state is fed as an additional
@@ -72,19 +80,28 @@ class NeuralODE(eqx.Module):
                 Defaults to either `jax.numpy.float32` or `jax.numpy.float64`
                 depending on whether JAX is in 64-bit mode.
             key: A `jax.random.PRNGKey` used to provide randomness for
-                parameter initialisation.
+                parameter initialization.
 
         """
         self.state_size = state_size
         self.input_size = input_size
+        self.parameter_size = parameter_size
         self.time_dependent = time_dependent
         self.state_dependent = state_dependent
+        self.input_dependent = input_size is not None
+        self.parameter_dependent = parameter_size is not None
 
-        in_size = state_dependent * state_size + input_size + time_dependent
+        in_size = state_dependent * state_size + time_dependent
+        if input_size is not None:
+            in_size += input_size
+        if parameter_size is not None:
+            in_size += parameter_size
+
         if in_size == 0:
             raise ValueError(
-                "The neural ODE must depend on at least one of time, state, or input."
+                "The neural ODE must depend on at least one of time, state, input or parameters."
             )
+
         out_size = state_size
         self.mlp = klax.nn.MLP(
             in_size,
@@ -105,45 +122,33 @@ class NeuralODE(eqx.Module):
     def __call__(
         self,
         t: Scalar | None,
-        y: Shaped[Array, "n"] | None,
-        u: Shaped[Array, "m"] | None,
+        x: Shaped[Array, "n"] | None,
+        u: Shaped[Array, "m"] | None = None,
+        args: PyTree[Array] | None = None,
     ) -> Shaped[Array, "n"]:
         """Evaluate the neural ODE's derivative."""
         nn_input = []
 
         if self.time_dependent:
-            assert t is not None, (
-                "Time t must not be None, since the model is time-dependent."
-            )
-            assert jnp.ndim(t) == 0, (
-                f"Time t must be a scalar, but has shape {t.shape}."
-            )
-            t = jnp.expand_dims(t, axis=0)
             nn_input.append(t)
 
         if self.state_dependent:
-            assert y is not None, (
-                "State y must not be None, since the model is state-dependent."
-            )
-            assert y.shape[0] == self.state_size, (
-                f"State y must have shape ({self.state_size},), but has shape {y.shape}."
-            )
-            nn_input.append(y)
+            nn_input.append(x)
 
-        if self.input_size > 0:
-            assert u is not None, (
-                "Input u must not be None, since the model requires inputs. \
-                    If the model should not depend on inputs, set input_size=0."
-            )
-            assert u.shape[0] == self.input_size, (
-                f"Input u must have shape ({self.input_size},), but has shape {u.shape}."
-            )
+        if self.input_dependent:
             nn_input.append(u)
-        else:
-            assert u is None, (
-                "Input u must be None, since the model does not require inputs. \
-                    If the model should depend on inputs, set input_size>0."
-            )
 
-        nn_input = jnp.concat(nn_input, axis=0)
-        return self.mlp(nn_input)
+        if self.parameter_dependent:
+            nn_input.append(args)
+
+        try:
+            flat, _ = ravel_pytree(nn_input)
+        except Exception as e:
+            raise ValueError(
+                "Could not ravel all inputs into a single 1D array for the "
+                "MLP. Perhaps you passed None as t, x, u or args even though "
+                "the NeuralODE is set to depend on time, state, input or "
+                f"parameters? Original error: {e}"
+            ) from e
+
+        return self.mlp(flat)

@@ -20,11 +20,11 @@ class ODESolver(eqx.Module):
     Solver for continuous-time ODE systems of the form
 
     $$
-        \dot{\boldsymbol{x}} = \boldsymbol{f}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \mu\bigr)
+        \dot{\boldsymbol{x}} = \boldsymbol{f}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \text{args}\bigr)
     $$
 
     with time $t \in \mathbb{R}$, state $\boldsymbol{x}(t) \in \mathbb{R}^n$,
-    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\text{args}$.
 
     The system is integrated using `diffrax.diffeqsolve`.
     To evaluate the input $\boldsymbol{u}(t)$ at arbitrary points in time Hermite

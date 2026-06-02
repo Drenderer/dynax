@@ -25,11 +25,11 @@ class ISOPHS(eqx.Module):
     - $\boldsymbol{x}(t)$ is the state,
     - $\boldsymbol{u}(t)$ is the input,
     - $\boldsymbol{y}(t)$ is the output,
-    - $\mathcal{H}(\boldsymbol{x}, \mu)$ is the Hamiltonian function given by `hamiltonian`,
-    - $\boldsymbol{J}(\boldsymbol{x}, \mu)$ is the structure matrix given by `structure_matrix`,
-    - $\boldsymbol{R}(\boldsymbol{x}, \mu)$ is the dissipation matrix given by `dissipation_matrix`,
-    - $\boldsymbol{G}(\boldsymbol{x}, \mu)$ is the input matrix given by `input_matrix`,
-    - and $\mu$ is an optional set of parameters.
+    - $\mathcal{H}(\boldsymbol{x}, \text{args})$ is the Hamiltonian function given by `hamiltonian`,
+    - $\boldsymbol{J}(\boldsymbol{x}, \text{args})$ is the structure matrix given by `structure_matrix`,
+    - $\boldsymbol{R}(\boldsymbol{x}, \text{args})$ is the dissipation matrix given by `dissipation_matrix`,
+    - $\boldsymbol{G}(\boldsymbol{x}, \text{args})$ is the input matrix given by `input_matrix`,
+    - and $\text{args}$ is an optional set of parameters.
 
     !!! note
         The usage of the output equation is optional, but requires that the input
@@ -66,22 +66,22 @@ class ISOPHS(eqx.Module):
 
         Args:
             hamiltonian: Function or submodel computing the Hamiltonian
-                $\mathcal{H}(\boldsymbol{x}, \mu)$ as a function of the state vector
+                $\mathcal{H}(\boldsymbol{x}, \text{args})$ as a function of the state vector
                 and the parameters.
             structure_matrix: Function or submodel computing the structure
-                matrix $\boldsymbol{J}(\boldsymbol{x}, \mu)$ as a function of the state
+                matrix $\boldsymbol{J}(\boldsymbol{x}, \text{args})$ as a function of the state
                 vector and the parameters. From the port-Hamiltonian modeling
                 view the structure matrix is required to be skew-symmetric,
                 i.e., $\boldsymbol{J} = -\boldsymbol{J}^\intercal$.
             dissipation_matrix: Function or submodel computing the dissipation
-                matrix $\boldsymbol{R}(\boldsymbol{x}, \mu)$ as a function of the state
+                matrix $\boldsymbol{R}(\boldsymbol{x}, \text{args})$ as a function of the state
                 vector. From the port-Hamiltonian modeling view the dissipation
                 matrix is required to be symmetric positive semi-definite, i.e.,
                 $\boldsymbol{R} = \boldsymbol{R}^\intercal,\,\boldsymbol{R}\succ0$.
                 `None` can be used to indicate that the system does not have a
                 dissipation matrix.
             input_matrix: Function or submodel computing the input matrix
-                $\boldsymbol{G}(\boldsymbol{x}, \mu)$ as a function of the state vector.
+                $\boldsymbol{G}(\boldsymbol{x}, \text{args})$ as a function of the state vector.
                 `None` can be used to indicate that the system does not have
                 external inputs $\boldsymbol{u}$.
                 Defaults to None.
@@ -222,8 +222,8 @@ class MatrixWrapper(eqx.Module):
     It supports 4 modes depending on `state_dependent` and `parameter_dependent`:
 
     - If both `state_dependent=parameter_dependent=True`, then the `x` and `args`
-    are concatenated and the result is passed to the wrapped matrix-valued
-    function. In this case both `x` and `args` are required to be 1-d arrays.
+    are combined using `jax.flatten_util.ravel_pytree([x, args])` and the result
+    is passed to the wrapped matrix-valued function.
     - If only `state_dependent=True`, then `x` is passed to the matrix-valued
     function.
     - If only `parameter_dependent=True`, then `args` is passed to the
@@ -237,13 +237,13 @@ class MatrixWrapper(eqx.Module):
     parameter_dependent: bool = False
 
     def __call__(
-        self, x: Float[Array, "n"], args: PyTree | Float[Array, "a"]
+        self, x: Float[Array, "n"], args: PyTree[Array]
     ) -> Float[Array, "i j"]:
         if self.state_dependent and self.parameter_dependent:
-            c = jnp.concat([x, args])
+            c, _ = jax.flatten_util.ravel_pytree([x, args])
             return self.matrix(c)
-        elif self.state_dependent:
+        if self.state_dependent:
             return self.matrix(x)
-        elif self.parameter_dependent:
+        if self.parameter_dependent:
             return self.matrix(args)
         return self.matrix(None)

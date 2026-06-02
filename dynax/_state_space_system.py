@@ -21,14 +21,14 @@ class StateSpaceSystem(eqx.Module):
 
     $$
     \begin{align}
-    \dot{\boldsymbol{x}} &= \boldsymbol{f}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \mu\bigr), \\
-    \boldsymbol{y} &= \boldsymbol{g}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \mu\bigr),
+    \dot{\boldsymbol{x}} &= \boldsymbol{f}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \text{args}\bigr), \\
+    \boldsymbol{y} &= \boldsymbol{g}\bigl(t, \boldsymbol{x}, \boldsymbol{u}; \text{args}\bigr),
     \end{align}
     $$
 
     with time $t \in \mathbb{R}$, state $\boldsymbol{x}(t) \in \mathbb{R}^n$,
     input $\boldsymbol{u}(t) \in \mathbb{R}^m$, output $\boldsymbol{y}(t) \in \mathbb{R}^p$
-    and optional static parameters $\mu$.
+    and optional static parameters $\text{args}$.
 
     The state equation is integrated using the [`ODESolver`][dynax.ODESolver]
     module.

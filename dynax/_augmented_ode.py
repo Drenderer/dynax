@@ -25,14 +25,14 @@ class AugmentedODE(eqx.Module):
     $$
     \begin{align}
         \boldsymbol{z}_0 &= \begin{bmatrix} \boldsymbol{x}_0 \\ \tilde{\boldsymbol{x}}_0 \end{bmatrix}, \\
-        \dot{\boldsymbol{z}} &= \boldsymbol{f}\bigl(t, \boldsymbol{z}, \boldsymbol{u}; \mu\bigr), \\
+        \dot{\boldsymbol{z}} &= \boldsymbol{f}\bigl(t, \boldsymbol{z}, \boldsymbol{u}; \text{args}\bigr), \\
         \boldsymbol{x}(t) &= \boldsymbol{z}(t)[:n]
     \end{align}
     $$
 
     with time $t \in \mathbb{R}$, state $\boldsymbol{x}(t) \in \mathbb{R}^n$, 
     augmented state $\boldsymbol{z}(t) \in \mathbb{R}^{n+n_\text{aug}}$,
-    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\mu$.
+    input $\boldsymbol{u}(t) \in \mathbb{R}^m$ and optional static parameters $\text{args}$.
 
     """
 

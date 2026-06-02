@@ -1,7 +1,6 @@
 from ._augmented_ode import AugmentedODE as AugmentedODE
 from ._datahandling import Trajectory as Trajectory
 from ._datahandling import differentiate as differentiate
-from ._lyapunov_function import ConvexLyapunov as ConvexLyapunov
 from ._node import NeuralODE as NeuralODE
 from ._normalize import (
     normalization_coefficients as normalization_coefficients,
@@ -9,6 +8,8 @@ from ._normalize import (
 from ._odesolver import ODESolver as ODESolver
 from ._phs import ISOPHS as ISOPHS
 from ._phs import MatrixWrapper as MatrixWrapper
+from ._potentials import ConvexNormalization as ConvexNormalization
+from ._potentials import NoArgsPotential as NoArgsPotential
 from ._pytree_utils import concat_pytree as concat_pytree
 from ._pytree_utils import slice_pytree as slice_pytree
 from ._singals import aprbs as aprbs
