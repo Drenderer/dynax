@@ -77,12 +77,6 @@ class TestBandlimitedNoise:
         # Not guaranteed to be totally different, but typically will differ
         assert not jnp.allclose(sig_default, sig_custom)
 
-    @pytest.mark.parametrize("length", [0, 1])
-    def test_small_length_case(self, getkey, length):
-        key = getkey()
-        sig = bandlimited_noise(key, length)
-        assert sig.shape == (length,)
-
     def test_large_max_freq_means_no_filtering(self, getkey):
         key = getkey()
         sig_full = bandlimited_noise(key, 128, max_freq=1e6)

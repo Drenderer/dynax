@@ -10,7 +10,7 @@ from dynax._datahandling import (
 
 
 def test_differentiate():
-    ts = jnp.linspace(0, 1, 1000, dtype=jax.numpy.float64)
+    ts = jnp.linspace(0, 1, 1000)
     ys = (ts, jnp.stack([jnp.sin(ts), jnp.cos(ts)], axis=1))
     y_ts = (jnp.ones_like(ts), jnp.stack([jnp.cos(ts), -jnp.sin(ts)], axis=1))
     y_ts_ = differentiate(ts, ys)
