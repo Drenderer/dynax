@@ -1,18 +1,9 @@
-from collections.abc import Sequence
-from typing import TYPE_CHECKING
-
 import equinox as eqx
 import jax
-import numpy as np
-from jaxtyping import Array, ArrayLike, PyTree, Real
+from jaxtyping import Array, PyTree
 
 from ._odesolver import ODESolver
 from ._pytree_utils import concat_pytree, slice_pytree
-
-if TYPE_CHECKING:
-    RealScalarLike = int | float | Array | np.ndarray
-else:
-    RealScalarLike = Real[ArrayLike, ""]
 
 
 class AugmentedODE(eqx.Module):
@@ -71,7 +62,7 @@ class AugmentedODE(eqx.Module):
 
     def __call__(
         self,
-        ts: Sequence[RealScalarLike] | Array,
+        ts: Array,
         x0: PyTree,
         us: PyTree | None = None,
         args: PyTree = None,

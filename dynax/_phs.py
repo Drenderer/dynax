@@ -1,11 +1,14 @@
 """Port-Hamiltonian Systems."""
 
 from collections.abc import Callable
+from typing import cast
 
 import equinox as eqx
 import jax
 from jax import numpy as jnp
 from jaxtyping import Array, Float, PyTree, Scalar
+
+from ._typing import RealScalarLike
 
 
 class ISOPHS(eqx.Module):
@@ -97,7 +100,7 @@ class ISOPHS(eqx.Module):
 
     def __call__(
         self,
-        t: Scalar,
+        t: RealScalarLike,
         x: Float[Array, "n"],
         u: Float[Array, "m"] | None = None,
         args: PyTree = None,
@@ -126,7 +129,7 @@ class ISOPHS(eqx.Module):
 
     def state_equation(
         self,
-        t: Scalar,
+        t: RealScalarLike,
         x: Float[Array, "n"],
         u: Float[Array, "m"] | None = None,
         args: PyTree = None,
@@ -169,6 +172,7 @@ class ISOPHS(eqx.Module):
         x_t = sys_matrix @ jax.grad(self.hamiltonian)(x, args)
 
         if self.input_matrix is not None:
+            u = cast(Array, u)
             input_matrix = self.input_matrix(x, args)
             x_t += input_matrix @ u
 
@@ -176,7 +180,7 @@ class ISOPHS(eqx.Module):
 
     def output_equation(
         self,
-        t: Scalar,
+        t: RealScalarLike,
         x: Float[Array, "n"],
         u: Float[Array, "m"] | None = None,
         args: PyTree = None,

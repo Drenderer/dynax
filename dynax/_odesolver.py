@@ -1,15 +1,10 @@
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 import diffrax
 import equinox as eqx
-import numpy as np
-from jaxtyping import Array, ArrayLike, PyTree, Real, Scalar
+from jaxtyping import Array, PyTree, Scalar
 
-if TYPE_CHECKING:
-    RealScalarLike = int | float | Array | np.ndarray
-else:
-    RealScalarLike = Real[ArrayLike, ""]
+from ._typing import RealScalarLike
 
 type ODEFunc = Callable[[RealScalarLike, PyTree, PyTree, PyTree], PyTree]
 
@@ -86,7 +81,7 @@ class ODESolver(eqx.Module):
 
     def __call__(
         self,
-        ts: Sequence[RealScalarLike] | Array,
+        ts: Array,
         x0: PyTree,
         us: PyTree | None = None,
         args: PyTree = None,
@@ -109,7 +104,7 @@ class ODESolver(eqx.Module):
 
     def get_diffrax_solution(
         self,
-        ts: Sequence[RealScalarLike] | Array,
+        ts: Array,
         x0: PyTree,
         us: PyTree | None = None,
         args: PyTree = None,

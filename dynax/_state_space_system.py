@@ -1,17 +1,11 @@
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 import equinox as eqx
 import jax
-import numpy as np
-from jaxtyping import Array, ArrayLike, PyTree, Real
+from jaxtyping import Array, PyTree
 
 from ._odesolver import ODESolver
-
-if TYPE_CHECKING:
-    RealScalarLike = int | float | Array | np.ndarray
-else:
-    RealScalarLike = Real[ArrayLike, ""]
+from ._typing import RealScalarLike
 
 
 class StateSpaceSystem(eqx.Module):
@@ -56,7 +50,7 @@ class StateSpaceSystem(eqx.Module):
 
     def __call__(
         self,
-        ts: Sequence[RealScalarLike] | Array,
+        ts: Array,
         x0: PyTree,
         us: PyTree | None = None,
         args: PyTree = None,
