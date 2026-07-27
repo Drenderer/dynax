@@ -41,8 +41,8 @@ class ODESolver(eqx.Module):
     func: ODEFunc
     solver: diffrax.AbstractSolver
     stepsize_controller: diffrax.AbstractStepSizeController
-    max_steps: int | None = eqx.field(static=True)
-    dt0: Scalar | None = eqx.field(static=True)
+    max_steps: int | None
+    dt0: Scalar | None
     adjoint: diffrax.AbstractAdjoint
 
     def __init__(

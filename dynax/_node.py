@@ -20,13 +20,13 @@ class NeuralODE(eqx.Module):
     """
 
     mlp: klax.nn.MLP
-    state_size: int = eqx.field(static=True)
-    input_size: int = eqx.field(static=True)
-    parameter_size: int = eqx.field(static=True)
-    time_dependent: bool = eqx.field(static=True)
-    state_dependent: bool = eqx.field(static=True)
-    input_dependent: bool = eqx.field(static=True)
-    parameter_dependent: bool = eqx.field(static=True)
+    state_size: int
+    input_size: int
+    parameter_size: int
+    time_dependent: bool
+    state_dependent: bool
+    input_dependent: bool
+    parameter_dependent: bool
 
     def __init__(
         self,

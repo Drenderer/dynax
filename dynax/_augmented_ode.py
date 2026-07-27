@@ -38,7 +38,7 @@ class AugmentedODE(eqx.Module):
 
     ode_solver: ODESolver
     x0_auxiliary: PyTree
-    concat_axes: PyTree[int] = eqx.field(static=True)
+    concat_axes: PyTree[int]
 
     def __init__(
         self,
